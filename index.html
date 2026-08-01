@@ -3810,6 +3810,15 @@
         // Keep resending final score so opponent never stays stuck on "waiting"
         if (mp.myDone && !mp.resultShown) {
           mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+          if (mp.oppDone) {
+            mpSend({
+              t: "results",
+              score: mp.myScore,
+              label: mp.myLabel || "Your Card",
+              oppScore: mp.oppScore,
+              oppLabel: mp.oppLabel
+            });
+          }
         }
         if (mp.role === "host") {
           mpSend({ t: "settings", settings: mp.settings });
@@ -3914,17 +3923,37 @@
           mpApplySettings(data.settings, true);
           mpUpdateLobby();
         }
-      } else if (data.t === "done") {
-        mp.oppDone = true;
-        mp.oppScore = data.score;
-        mp.oppLabel = data.label || "Opponent";
-        // If we finished too, show results; also re-broadcast our score so they can unlock
+      } else if (data.t === "done" || data.t === "results") {
+        if (typeof data.score !== "undefined") {
+          mp.oppDone = true;
+          mp.oppScore = data.score;
+          mp.oppLabel = data.label || "Opponent";
+        }
+        // Peer may also echo what they think our score is — ignore for our own
         if (mp.myDone) {
-          mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+          try {
+            mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+            mpSend({
+              t: "results",
+              score: mp.myScore,
+              label: mp.myLabel || "Your Card",
+              oppScore: mp.oppScore,
+              oppLabel: mp.oppLabel
+            });
+          } catch (eD) {}
           mpRevealResults();
-        } else {
+        } else if (mp.oppDone) {
           var stWait = document.getElementById("mpWaitStatus");
           if (stWait) stWait.textContent = "Opponent finished (" + (mp.oppScore != null ? mp.oppScore : "—") + "). Keep drafting…";
+          // If we are stuck on matchup (never started) but opponent finished, still need to race or end
+          try {
+            var mu = document.getElementById("screen-mp-matchup");
+            if (mp.ranked && mu && mu.classList.contains("active") && !mp.active) {
+              // Opponent somehow finished without us loading — treat as disconnect loss for us after grace
+              // Keep trying to start presence instead
+              rankedAutoReadyTick();
+            }
+          } catch (eMu) {}
         }
       } else if (data.t === "rematch") {
         // Ranked matches never rematch in-lobby — force requeue
@@ -4169,12 +4198,23 @@
       mp.myDone = true; mp.myScore = score; mp.myLabel = label || "Your Card";
       function pushDone() {
         mpSend({ t: "done", score: mp.myScore, label: mp.myLabel });
+        // Also send a results-hint so a peer that already finished can unlock
+        if (mp.oppDone) {
+          mpSend({
+            t: "results",
+            score: mp.myScore,
+            label: mp.myLabel,
+            oppScore: mp.oppScore,
+            oppLabel: mp.oppLabel
+          });
+        }
       }
       pushDone();
-      // Burst a few more times in case the first publish is lost
-      setTimeout(pushDone, 400);
-      setTimeout(pushDone, 1200);
-      setTimeout(pushDone, 2500);
+      setTimeout(pushDone, 300);
+      setTimeout(pushDone, 800);
+      setTimeout(pushDone, 1600);
+      setTimeout(pushDone, 3000);
+      setTimeout(pushDone, 5000);
       if (mp.oppDone) mpRevealResults();
       else {
         var st = document.getElementById("mpWaitStatus");
@@ -4252,24 +4292,44 @@
       try {
         ranked.queueing = false;
         ranked._matching = false;
-        ranked.matchLock = true; // blocks all queue/match invites until Play Again
+        ranked.matchLock = true;
         ranked._queuePeers = {};
         if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
         if (ranked._autoReadyTimer) { clearInterval(ranked._autoReadyTimer); ranked._autoReadyTimer = null; }
       } catch (eQ) {}
       try { rankedClearLock(); } catch (eL) {}
-      // Drop the live room so late "start"/"ready" packets cannot begin another race
-      try { mpStopPresence(); } catch (eP) {}
-      try {
-        if (mp.client) {
-          mp.client.removeAllListeners();
-          mp.client.end(true);
-        }
-      } catch (eC) {}
-      mp.client = null;
-      mp.connecting = false;
-      mp.topic = null;
-      ranked._bridgeSend = null;
+
+      // Keep the room alive briefly and burst final results so the other client unlocks
+      function pushFinal() {
+        try {
+          mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+          mpSend({
+            t: "results",
+            score: mp.myScore,
+            label: mp.myLabel || "Your Card",
+            oppScore: mp.oppScore,
+            oppLabel: mp.oppLabel
+          });
+        } catch (ePush) {}
+      }
+      pushFinal();
+      setTimeout(pushFinal, 400);
+      setTimeout(pushFinal, 1200);
+      setTimeout(pushFinal, 2500);
+      // Tear down room after peer has had time to receive results
+      setTimeout(function() {
+        try { mpStopPresence(); } catch (eP) {}
+        try {
+          if (mp.client) {
+            mp.client.removeAllListeners();
+            mp.client.end(true);
+          }
+        } catch (eC) {}
+        mp.client = null;
+        mp.connecting = false;
+        mp.topic = null;
+        ranked._bridgeSend = null;
+      }, 6000);
 
       var rematchBtn = document.getElementById("btnMpRematch");
       var queueBtn = document.getElementById("btnMpQueueAgain");
@@ -4890,6 +4950,8 @@
     function rankedShowScreen() {
       ranked.profile = rankedLoadProfile();
       rankedRenderUI();
+      // Never leave a stale "Match found" banner when idle
+      if (!ranked.queueing) rankedSetQueueStatus("");
       rankedEnsureClient(function() {
         try { rankedHydrateLocalFromNetwork(); } catch (e1) {}
         ranked.profile = ranked.profile || rankedLoadProfile();
@@ -5027,7 +5089,7 @@
     }
 
     function rankedAutoReadyTick() {
-      if (!mp.ranked || mp.active || mp.resultShown) return;
+      if (!mp.ranked || mp.active || mp.resultShown || ranked.matchLock) return;
       mp.settings = {
         images: mp.settings && typeof mp.settings.images === "boolean" ? mp.settings.images : true,
         grades: false
@@ -5040,7 +5102,6 @@
           var st0 = document.getElementById("muStatusText");
           if (st0) st0.textContent = "Connecting to room…";
         } catch (e) {}
-        // Keep trying to connect room
         if (!mp.connecting) {
           try { mpConnectBroker(); } catch (eR) {}
         }
@@ -5048,18 +5109,23 @@
         return;
       }
 
-      // Always auto-ready in ranked once we are connected to the room
-      if (!mp.ready) {
-        mp.ready = true;
-      }
+      if (!mp.ready) mp.ready = true;
       try { mpSend({ t: "hello", role: mp.role, ready: true }); } catch (eH) {}
       try { mpSend({ t: "here", role: mp.role, ready: true }); } catch (eH2) {}
       try { mpSend({ t: "ready" }); } catch (eR2) {}
       if (mp.role === "host") {
         try { mpSend({ t: "settings", settings: mp.settings }); } catch (e1) {}
+        // Host keeps requesting start once opponent is present
+        if (mp.oppConnected) {
+          try { mpSend({ t: "start" }); } catch (eStt) {}
+        }
       }
       if (mp.oppConnected) {
         try { mpTryStart(); } catch (e3) {}
+      }
+      // Guest: if we hear host is ready but start was missed, begin locally when both ready
+      if (mp.oppConnected && mp.ready && mp.oppReady && !mp.active) {
+        try { mpBeginRace(); } catch (eBr) {}
       }
       try {
         var st = document.getElementById("muStatusText");
@@ -5215,7 +5281,7 @@
       ranked.queueing = false;
       ranked._matching = false;
       if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
-      rankedSetQueueStatus("Queue cancelled");
+      rankedSetQueueStatus("");
       var btnQ = document.getElementById("btnRankedQueue");
       var btnC = document.getElementById("btnRankedCancelQueue");
       if (btnQ) btnQ.style.display = "";
@@ -5375,6 +5441,7 @@
         var wasRanked = !!mp.ranked || !!(ranked && ranked.profile);
         try { mpLeave(); } catch (eL) {}
         rankedClearLock();
+        rankedSetQueueStatus(""); // clear "Match found…"
         if (wasRanked && typeof rankedShowScreen === "function") rankedShowScreen();
         else showHome();
       });
