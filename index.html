@@ -3776,12 +3776,23 @@
       return s;
     }
     function mpSend(msg) {
-      if (!mp.client || !mp.topic || !mp.client.connected) return;
+      var payloadObj = Object.assign({ from: mp.clientId, ts: Date.now() }, msg);
+      var payload = null;
+      try { payload = JSON.stringify(payloadObj); } catch (eJ) { return; }
+      // Primary room client
       try {
-        var payload = JSON.stringify(Object.assign({ from: mp.clientId, ts: Date.now() }, msg));
-        // QoS 1 so presence / ready / done are less likely to be dropped
-        mp.client.publish(mp.topic, payload, { qos: 1, retain: false });
+        if (mp.client && mp.topic && mp.client.connected) {
+          mp.client.publish(mp.topic, payload, { qos: 1, retain: false });
+        }
       } catch (e) {}
+      // Ranked bridge on matchmaking client (guarantees same broker as queue)
+      try {
+        if (mp.ranked && typeof ranked._bridgeSend === "function") {
+          ranked._bridgeSend(msg);
+        } else if (mp.ranked && ranked.client && ranked.client.connected && mp.topic) {
+          ranked.client.publish(mp.topic, payload, { qos: 1 });
+        }
+      } catch (e2) {}
     }
     function mpStopPresence() {
       if (mp.presenceTimer) {
@@ -3970,23 +3981,34 @@
       mp.brokerIndex = 0;
       if (!mp.clientId) mp.clientId = "bac_" + Math.random().toString(16).slice(2, 12);
 
+      // Ranked: both players MUST use the same broker or presence never meets
+      var brokerList = MP_BROKERS;
+      if (mp.ranked) {
+        brokerList = ["wss://broker.emqx.io:8084/mqtt"];
+      }
+
       function tryNextBroker() {
-        if (mp.brokerIndex >= MP_BROKERS.length) {
+        if (mp.brokerIndex >= brokerList.length) {
           mp.connecting = false;
           mpSetConnText("Could not connect — refresh & retry");
+          try {
+            var st = document.getElementById("muStatusText");
+            if (st) st.textContent = "Connection failed — return to Ranked and requeue";
+          } catch (eF) {}
           mpUpdateLobby();
           return;
         }
-        var url = MP_BROKERS[mp.brokerIndex];
-        mpSetConnText("Connecting… (" + (mp.brokerIndex + 1) + "/" + MP_BROKERS.length + ")");
+        var url = brokerList[mp.brokerIndex];
+        mpSetConnText("Connecting… (" + (mp.brokerIndex + 1) + "/" + brokerList.length + ")");
         var connectedOnce = false;
         var timedOut = false;
         var opts = {
-          clientId: mp.clientId + "_" + mp.brokerIndex,
+          clientId: mp.clientId + "_" + mp.brokerIndex + "_" + Math.random().toString(16).slice(2, 6),
           clean: true,
           connectTimeout: 12000,
-          reconnectPeriod: 0, // we handle failover ourselves
-          keepalive: 30,
+          // Ranked keeps reconnecting on the same broker so both stay aligned
+          reconnectPeriod: mp.ranked ? 3000 : 0,
+          keepalive: 20,
           protocolVersion: 4
         };
         var client;
@@ -4015,7 +4037,7 @@
           connectedOnce = true;
           clearTimeout(failTimer);
           mp.connecting = false;
-          mp.topic = "buildacard/v1/" + String(mp.code || "").toUpperCase();
+          mp.topic = (mp.ranked ? "buildacard/v5/ranked/room/" : "buildacard/v1/") + String(mp.code || "").toUpperCase();
           // Subscribe at QoS 1, then announce
           client.subscribe(mp.topic, { qos: 1 }, function(err) {
             if (err) {
@@ -4024,14 +4046,25 @@
               tryNextBroker();
               return;
             }
-            mpSend({ t: "hello", role: mp.role, ready: !!mp.ready });
-            mpSend({ t: "here", role: mp.role, ready: !!mp.ready });
+            mpSend({ t: "hello", role: mp.role, ready: !!mp.ready, ranked: !!mp.ranked, name: (ranked.profile && ranked.profile.username) || "" });
+            mpSend({ t: "here", role: mp.role, ready: !!mp.ready, ranked: !!mp.ranked });
             if (mp.role === "host") {
               mpSend({ t: "settings", settings: mp.settings });
             }
+            // Burst presence so a slightly-later peer still finds us
+            setTimeout(function() { mpSend({ t: "hello", role: mp.role, ready: !!mp.ready }); }, 300);
+            setTimeout(function() { mpSend({ t: "here", role: mp.role, ready: !!mp.ready }); }, 700);
+            setTimeout(function() { mpSend({ t: "hello", role: mp.role, ready: !!mp.ready }); }, 1500);
+            setTimeout(function() { mpSend({ t: "here", role: mp.role, ready: !!mp.ready }); }, 2500);
             mpStartPresence();
             mpSetConnText(mp.role === "host" ? "Room open — share code" : "Joined — waiting for host");
+            try {
+              var st2 = document.getElementById("muStatusText");
+              if (st2 && mp.ranked) st2.textContent = "Connected — waiting for opponent…";
+            } catch (eSt2) {}
             mpUpdateLobby();
+            // Ranked bridge: also use the matchmaking client on the same room topic
+            try { rankedBridgeRoom(); } catch (eBr) {}
           });
         });
 
@@ -4496,6 +4529,8 @@
       if (ranked._connecting) return;
 
       ranked._connecting = true;
+      ranked._roomBridgeBound = false;
+      ranked._bridgeSend = null;
       var brokers = (typeof MP_BROKERS !== "undefined" && MP_BROKERS.length)
         ? MP_BROKERS.slice()
         : ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
@@ -4867,6 +4902,43 @@
       el.className = "ranked-status" + (hot ? " hot" : "");
     }
 
+    
+    /** Ranked: mirror room traffic on the matchmaking client (same broker both already use). */
+    function rankedBridgeRoom() {
+      if (!mp.ranked || !mp.code) return;
+      var roomTopic = "buildacard/v5/ranked/room/" + String(mp.code).toUpperCase();
+      mp.topic = roomTopic;
+      rankedEnsureClient(function(c) {
+        if (!c || !c.connected) return;
+        try { c.subscribe(roomTopic, { qos: 1 }); } catch (eS) {}
+        // Reuse one message handler flag
+        if (!ranked._roomBridgeBound) {
+          ranked._roomBridgeBound = true;
+          c.on("message", function(topic, buf) {
+            try {
+              if (!mp.ranked || !mp.topic) return;
+              if (String(topic) !== String(mp.topic)) return;
+              var data = JSON.parse(buf.toString());
+              if (!data || (data.from && data.from === mp.clientId)) return;
+              mpOnMessage(data);
+            } catch (eM) {}
+          });
+        }
+        function bridgeSend(msg) {
+          try {
+            var payload = JSON.stringify(Object.assign({ from: mp.clientId, ts: Date.now() }, msg));
+            c.publish(roomTopic, payload, { qos: 1 });
+          } catch (eP) {}
+        }
+        ranked._bridgeSend = bridgeSend;
+        bridgeSend({ t: "hello", role: mp.role, ready: !!mp.ready });
+        bridgeSend({ t: "here", role: mp.role, ready: !!mp.ready });
+        setTimeout(function() { bridgeSend({ t: "hello", role: mp.role, ready: !!mp.ready }); }, 400);
+        setTimeout(function() { bridgeSend({ t: "here", role: mp.role, ready: !!mp.ready }); }, 900);
+        setTimeout(function() { bridgeSend({ t: "ready", role: mp.role }); }, 1200);
+      });
+    }
+
     function rankedOnQueueMessage(data) {
       if (!ranked.queueing || !ranked.profile) return;
       if (!data || !data.username) return;
@@ -4942,31 +5014,39 @@
         grades: false
       };
       try { mpApplySettings(mp.settings, false); } catch (e0) {}
-      if (!mp.client || !mp.client.connected) {
+
+      var roomUp = (mp.client && mp.client.connected) || (ranked.client && ranked.client.connected);
+      if (!roomUp) {
         try {
           var st0 = document.getElementById("muStatusText");
           if (st0) st0.textContent = "Connecting to room…";
         } catch (e) {}
+        // Keep trying to connect room
+        if (!mp.connecting) {
+          try { mpConnectBroker(); } catch (eR) {}
+        }
+        try { rankedBridgeRoom(); } catch (eB) {}
         return;
       }
-      // Keep announcing presence
-      try { mpSend({ t: "hello", role: mp.role, ready: !!mp.ready }); } catch (eH) {}
-      try { mpSend({ t: "here", role: mp.role, ready: !!mp.ready }); } catch (eH2) {}
+
+      // Always auto-ready in ranked once we are connected to the room
+      if (!mp.ready) {
+        mp.ready = true;
+      }
+      try { mpSend({ t: "hello", role: mp.role, ready: true }); } catch (eH) {}
+      try { mpSend({ t: "here", role: mp.role, ready: true }); } catch (eH2) {}
+      try { mpSend({ t: "ready" }); } catch (eR2) {}
       if (mp.role === "host") {
         try { mpSend({ t: "settings", settings: mp.settings }); } catch (e1) {}
       }
-      if (mp.oppConnected && !mp.ready) {
-        mp.ready = true;
-        try { mpSend({ t: "ready" }); } catch (e2) {}
-      }
-      if (mp.oppConnected && mp.ready) {
+      if (mp.oppConnected) {
         try { mpTryStart(); } catch (e3) {}
       }
       try {
         var st = document.getElementById("muStatusText");
         if (st) {
           if (!mp.oppConnected) st.textContent = "Waiting for opponent…";
-          else if (!mp.ready || !mp.oppReady) st.textContent = "Both connected — starting…";
+          else if (!mp.oppReady) st.textContent = "Both connected — starting…";
           else st.textContent = "Starting match…";
         }
       } catch (eSt) {}
@@ -5023,10 +5103,14 @@
       showScreen("screen-mp-matchup");
       try { rankedFillBanner(); } catch (eB) {}
 
-      // Connect room after a tick so the matchup UI paints first
+      // Connect room on BOTH the dedicated client and the matchmaking client
       setTimeout(function() {
         try { mpConnectBroker(); } catch (eC) {}
+        try { rankedBridgeRoom(); } catch (eB) {}
       }, 100);
+      setTimeout(function() {
+        try { rankedBridgeRoom(); } catch (eB2) {}
+      }, 1000);
 
       if (ranked._autoReadyTimer) clearInterval(ranked._autoReadyTimer);
       ranked._autoReadyTimer = setInterval(function() {
