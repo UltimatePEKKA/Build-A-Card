@@ -200,16 +200,18 @@
     }
     #screen-home { position: relative; }
     .version-badge {
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 5;
+      position: fixed;
+      top: 8px;
+      left: 10px;
+      z-index: 500;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
       color: var(--muted);
-      opacity: 0.85;
-      padding: 2px 4px;
+      opacity: 0.9;
+      padding: 2px 6px;
+      pointer-events: none;
+      font-family: 'Inter', system-ui, sans-serif;
     }
     /* Ranked / Trophy Road */
     .ranked-header {
@@ -302,7 +304,15 @@
       color: var(--gold);
     }
     .ranked-banner .rb-timer.warn { color: #fbbf24; }
-    .ranked-banner .rb-timer.danger { color: var(--red); animation: pulseDot 1s infinite; }
+    .ranked-banner .rb-timer.danger { color: var(--red); }
+    .ranked-banner .rb-timer.flash {
+      color: var(--red);
+      animation: rankedFlash 0.55s ease-in-out infinite;
+    }
+    @keyframes rankedFlash {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(1.06); }
+    }
     .mp-arena {
       width: 120px; height: 120px; margin: 4px auto 14px; position: relative; z-index: 1;
       filter: drop-shadow(0 8px 18px rgba(0,0,0,0.45));
@@ -773,6 +783,7 @@
   </style>
 </head>
 <body class="show-images show-grades">
+  <div class="version-badge" aria-hidden="true">V 1.2</div>
   <div id="loadingScreen">
     <div class="load-logo">BUILD-A-CARD</div>
     <div class="load-msg">Welcome to Build-A-Card</div>
@@ -801,7 +812,7 @@
           <span class="rb-vs">VS</span>
           <span id="rbOpp">Opponent</span>
         </div>
-        <div class="rb-meta" id="rbMeta">Ranked match · grades hidden</div>
+        <div class="rb-meta" id="rbMeta">Ranked match</div>
         <div class="rb-timer" id="rbTimer">3:00</div>
       </div>
       <div class="logo">BUILD-A-CARD</div>
@@ -809,7 +820,7 @@
     </header>
 
     <section id="screen-home" class="screen active">
-      <div class="version-badge" aria-hidden="true">version 1.1</div>
+      
       <div class="home-card">
         <div class="home-arena" aria-hidden="true">
           <img
@@ -970,7 +981,7 @@
           </div>
         </div>
         <div class="mp-status-pill live" style="margin:18px auto"><span class="dot"></span><span id="muStatusText">Loading match…</span></div>
-        <p style="font-size:13px;color:var(--muted);margin-top:8px">Ability grades hidden · Race starts automatically</p>
+        <p style="font-size:13px;color:var(--muted);margin-top:8px">Race starts automatically</p>
       </div>
     </section>
     <section id="screen-mp-wait" class="screen">
@@ -1052,7 +1063,11 @@
             </div>
             <div class="wheel-card" id="wheelCard">Ready<span class="rarity">Spin for attributes</span></div>
           </div>
-          <button class="btn btn-primary" id="spinBtn" type="button">Spin the Wheel</button>
+          <div class="spin-actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-primary" id="spinBtn" type="button">Spin the Wheel</button>
+            <button class="btn btn-secondary hidden" id="rerollBtn" type="button" title="One reroll per match">Reroll (1 left)</button>
+          </div>
+          <p id="rerollHint" class="hidden" style="font-size:12px;color:var(--muted);margin-top:8px">You get <strong style="color:var(--gold)">1 reroll</strong> per match — use it if the card is a dud.</p>
           <div class="stat-choices hidden" id="statChoices"></div>
         </div>
         <div class="panel">
@@ -1125,6 +1140,30 @@
         img: "https://api-assets.clashroyale.com/cards/300/W4Hmp8MTSdXANN8KdblbtHwtsbt0o749BbxNqmJYfA8.png" },
       { name: "Goblins", slug: "goblins", rarity: "Common", hp: 200, dmg: 110, hitSpeed: 1.1, range: "Melee", speed: "Very Fast", elixir: 2, special: "Fast swarm",
         img: "https://api-assets.clashroyale.com/cards/300/X_DQUye_OaS3QN6VC9CPw05Fit7wvSm3XegXIXKP--0.png" },
+      { name: "Skeletons", slug: "skeletons", rarity: "Common", hp: 70, dmg: 70, hitSpeed: 1.0, range: "Melee", speed: "Fast", elixir: 1, special: "Cheap cycle swarm",
+        img: "https://api-assets.clashroyale.com/cards/300/oO0yLb0iGi1tnZLB-l9YVMdP3yS-Lz6R8qV1hQ0g.png" },
+      { name: "Ice Spirit", slug: "ice-spirit", rarity: "Common", hp: 190, dmg: 95, hitSpeed: 0, range: "Melee", speed: "Very Fast", elixir: 1, special: "Freeze on contact",
+        img: "https://api-assets.clashroyale.com/cards/300/lv1bukcFOXg9q6FAusGyVjGcT_NyDU_JZyPUJ2DTXo.png" },
+      { name: "Fire Spirit", slug: "fire-spirit", rarity: "Common", hp: 190, dmg: 190, hitSpeed: 0, range: "2 area", speed: "Very Fast", elixir: 1, special: "Splash suicide bomb",
+        img: "https://api-assets.clashroyale.com/cards/300/16-BqusYytrjMy6qQL_zO1nHXQR-xkPZTMv8.png" },
+      { name: "Bomber", slug: "bomber", rarity: "Common", hp: 340, dmg: 200, hitSpeed: 1.9, range: "5", speed: "Medium", elixir: 2, special: "Ground splash",
+        img: "https://api-assets.clashroyale.com/cards/300/12n1CiaEhCRPCTyaml8H7sQTM9X0.png" },
+      { name: "Spear Goblins", slug: "spear-goblins", rarity: "Common", hp: 220, dmg: 70, hitSpeed: 1.7, range: "5", speed: "Very Fast", elixir: 2, special: "Cheap air defense",
+        img: "https://api-assets.clashroyale.com/cards/300/FSDFotjaXid-2y9gU-0.png" },
+      { name: "Bats", slug: "bats", rarity: "Common", hp: 70, dmg: 70, hitSpeed: 1.3, range: "Melee", speed: "Very Fast", elixir: 2, special: "Flying swarm",
+        img: "https://api-assets.clashroyale.com/cards/300/EnIKnOHdJ5g2N-l0.png" },
+      { name: "Cannon", slug: "cannon", rarity: "Common", hp: 700, dmg: 130, hitSpeed: 0.8, range: "5.5", speed: "Building", elixir: 3, special: "Ground defense",
+        img: "https://api-assets.clashroyale.com/cards/300/nZK1k-0.png" },
+      { name: "Tesla", slug: "tesla", rarity: "Common", hp: 1000, dmg: 120, hitSpeed: 1.1, range: "5.5", speed: "Building", elixir: 4, special: "Hides underground",
+        img: "https://api-assets.clashroyale.com/cards/300/OiwnGrxFMTwEns78GF0C9q3wYfXEDcVJjNxzJGtygp4.png" },
+      { name: "Mortar", slug: "mortar", rarity: "Common", hp: 1200, dmg: 200, hitSpeed: 5.0, range: "11.5", speed: "Building", elixir: 4, special: "Siege splash",
+        img: "https://api-assets.clashroyale.com/cards/300/lPOSw7h.png" },
+      { name: "Barbarians", slug: "barbarians", rarity: "Common", hp: 560, dmg: 160, hitSpeed: 1.4, range: "Melee", speed: "Medium", elixir: 5, special: "Four-man pack",
+        img: "https://api-assets.clashroyale.com/cards/300/ImTBQ1m.png" },
+      { name: "Royal Giant", slug: "royal-giant", rarity: "Common", hp: 2544, dmg: 240, hitSpeed: 1.7, range: "6.5", speed: "Slow", elixir: 6, special: "Building sniper tank",
+        img: "https://api-assets.clashroyale.com/cards/300/mnlRaNq.png" },
+      { name: "Elite Barbarians", slug: "elite-barbarians", rarity: "Common", hp: 1100, dmg: 300, hitSpeed: 1.5, range: "Melee", speed: "Fast", elixir: 6, special: "Fast dual tanks",
+        img: "https://api-assets.clashroyale.com/cards/300/C_rRye.png" },
       { name: "Giant", slug: "giant", rarity: "Rare", hp: 3600, dmg: 210, hitSpeed: 1.5, range: "Melee", speed: "Slow", elixir: 5, special: "Building target",
         img: "https://api-assets.clashroyale.com/cards/300/Axr4ox5_b7edmLsoHxBX3vmgijAIibuF6RImTbqLlXE.png" },
       { name: "Musketeer", slug: "musketeer", rarity: "Rare", hp: 720, dmg: 220, hitSpeed: 1.1, range: "6", speed: "Medium", elixir: 4, special: "Air & ground sniper",
@@ -1137,6 +1176,28 @@
         img: "https://api-assets.clashroyale.com/cards/300/0lIoYf3Y_plFTzo95zZL93JVxpfb3MMgFDDhgSDGU9A.png" },
       { name: "Wizard", slug: "wizard", rarity: "Rare", hp: 700, dmg: 260, hitSpeed: 1.4, range: "5.5", speed: "Medium", elixir: 5, special: "Area splash",
         img: "https://api-assets.clashroyale.com/cards/300/Mej7vnv4H_3p_8qPs_N6_GKahy6HDr7pU7i9eTHS84U.png" },
+      { name: "Dart Goblin", slug: "dart-goblin", rarity: "Rare", hp: 250, dmg: 110, hitSpeed: 0.7, range: "6.5", speed: "Very Fast", elixir: 3, special: "Fast chip sniper",
+        img: "https://api-assets.clashroyale.com/cards/300/AGF1Z1.png" },
+      { name: "Battle Ram", slug: "battle-ram", rarity: "Rare", hp: 1000, dmg: 240, hitSpeed: 1.4, range: "Melee", speed: "Medium", elixir: 4, special: "Charge into buildings",
+        img: "https://api-assets.clashroyale.com/cards/300/dyc9X.png" },
+      { name: "Flying Machine", slug: "flying-machine", rarity: "Rare", hp: 550, dmg: 140, hitSpeed: 1.1, range: "6", speed: "Fast", elixir: 4, special: "Air building sniper",
+        img: "https://api-assets.clashroyale.com/cards/300/fqQe.png" },
+      { name: "Zappies", slug: "zappies", rarity: "Rare", hp: 500, dmg: 80, hitSpeed: 1.6, range: "4.5", speed: "Medium", elixir: 4, special: "Stun pack",
+        img: "https://api-assets.clashroyale.com/cards/300/zappy.png" },
+      { name: "Royal Hogs", slug: "royal-hogs", rarity: "Rare", hp: 800, dmg: 70, hitSpeed: 1.2, range: "Melee", speed: "Very Fast", elixir: 5, special: "Quad building rush",
+        img: "https://api-assets.clashroyale.com/cards/300/rhogs.png" },
+      { name: "Three Musketeers", slug: "three-musketeers", rarity: "Rare", hp: 720, dmg: 220, hitSpeed: 1.1, range: "6", speed: "Medium", elixir: 9, special: "Triple sniper squad",
+        img: "https://api-assets.clashroyale.com/cards/300/3m.png" },
+      { name: "Goblin Cage", slug: "goblin-cage", rarity: "Rare", hp: 800, dmg: 0, hitSpeed: 0, range: "Building", speed: "Building", elixir: 4, special: "Spawns Brawler on death",
+        img: "https://api-assets.clashroyale.com/cards/300/gcage.png" },
+      { name: "Inferno Tower", slug: "inferno-tower", rarity: "Rare", hp: 1600, dmg: 50, hitSpeed: 0.4, range: "6", speed: "Building", elixir: 5, special: "Ramps to melt tanks",
+        img: "https://api-assets.clashroyale.com/cards/300/GLjYIVTn_rVZwnu32f2hyg35trSXOpH198K49kiCezs.png" },
+      { name: "Fireball", slug: "fireball", rarity: "Rare", hp: 0, dmg: 650, hitSpeed: 0, range: "2.5 area", speed: "Spell", elixir: 4, special: "Area damage + knockback",
+        img: "https://api-assets.clashroyale.com/cards/300/lZD9MILQv7O-P3XBr_xOLS5idwuz3_7Ws9G60U36yhc.png" },
+      { name: "Zap", slug: "zap", rarity: "Common", hp: 0, dmg: 190, hitSpeed: 0, range: "2.5 area", speed: "Spell", elixir: 2, special: "Stun + reset",
+        img: "https://api-assets.clashroyale.com/cards/300/7ehXF_N0wx_g4tB6p43ykXCPoyowzOIyHc-3EGcwZAs.png" },
+      { name: "Rocket", slug: "rocket", rarity: "Rare", hp: 0, dmg: 1400, hitSpeed: 0, range: "2 area", speed: "Spell", elixir: 6, special: "Massive single hit",
+        img: "https://api-assets.clashroyale.com/cards/300/Ie07nQNK9CjhKOa4-arFAewi4EroqaA-86Xo7r5tx94.png" },
       { name: "Baby Dragon", slug: "baby-dragon", rarity: "Epic", hp: 1100, dmg: 140, hitSpeed: 1.6, range: "3.5", speed: "Fast", elixir: 4, special: "Flying splash",
         img: "https://api-assets.clashroyale.com/cards/300/cjC9n4AvEZJ3urkVh-rwBkJ-aRSsydIMqSAV48hAih0.png" },
       { name: "Skeleton Army", slug: "skeleton-army", rarity: "Epic", hp: 70, dmg: 70, hitSpeed: 1.0, range: "Melee", speed: "Fast", elixir: 3, special: "Massive swarm",
@@ -1153,18 +1214,26 @@
         img: "https://api-assets.clashroyale.com/cards/300/npdmCnET7jmVjJvjJQkFnNSNnDxYHDBigbvIAloFMds.png" },
       { name: "Balloon", slug: "balloon", rarity: "Epic", hp: 1500, dmg: 700, hitSpeed: 2.0, range: "Melee", speed: "Medium", elixir: 5, special: "Death bomb + building",
         img: "https://api-assets.clashroyale.com/cards/300/qBipxLo-3hhCnPrApp2Nn3b2NgrSrvwzWytvREev0CY.png" },
-      { name: "Inferno Tower", slug: "inferno-tower", rarity: "Rare", hp: 1600, dmg: 50, hitSpeed: 0.4, range: "6", speed: "Building", elixir: 5, special: "Ramps to melt tanks",
-        img: "https://api-assets.clashroyale.com/cards/300/GLjYIVTn_rVZwnu32f2hyg35trSXOpH198K49kiCezs.png" },
       { name: "X-Bow", slug: "x-bow", rarity: "Epic", hp: 1400, dmg: 40, hitSpeed: 0.3, range: "11.5", speed: "Building", elixir: 6, special: "Siege long range",
         img: "https://api-assets.clashroyale.com/cards/300/ixRDW6AFcd7LJetvX00hlsNNmAH9voyP-VhHnwtEp60.png" },
-      { name: "Tesla", slug: "tesla", rarity: "Common", hp: 1000, dmg: 120, hitSpeed: 1.1, range: "5.5", speed: "Building", elixir: 4, special: "Hides underground",
-        img: "https://api-assets.clashroyale.com/cards/300/OiwnGrxFMTwEns78GF0C9q3wYfXEDcVJjNxzJGtygp4.png" },
-      { name: "Fireball", slug: "fireball", rarity: "Rare", hp: 0, dmg: 650, hitSpeed: 0, range: "2.5 area", speed: "Spell", elixir: 4, special: "Area damage + knockback",
-        img: "https://api-assets.clashroyale.com/cards/300/lZD9MILQv7O-P3XBr_xOLS5idwuz3_7Ws9G60U36yhc.png" },
-      { name: "Zap", slug: "zap", rarity: "Common", hp: 0, dmg: 190, hitSpeed: 0, range: "2.5 area", speed: "Spell", elixir: 2, special: "Stun + reset",
-        img: "https://api-assets.clashroyale.com/cards/300/7ehXF_N0wx_g4tB6p43ykXCPoyowzOIyHc-3EGcwZAs.png" },
-      { name: "Rocket", slug: "rocket", rarity: "Rare", hp: 0, dmg: 1400, hitSpeed: 0, range: "2 area", speed: "Spell", elixir: 6, special: "Massive single hit",
-        img: "https://api-assets.clashroyale.com/cards/300/Ie07nQNK9CjhKOa4-arFAewi4EroqaA-86Xo7r5tx94.png" },
+      { name: "Goblin Barrel", slug: "goblin-barrel", rarity: "Epic", hp: 0, dmg: 200, hitSpeed: 0, range: "Anywhere", speed: "Spell", elixir: 3, special: "Sneaky goblin drop",
+        img: "https://api-assets.clashroyale.com/cards/300/Cozlo.png" },
+      { name: "Wall Breakers", slug: "wall-breakers", rarity: "Epic", hp: 280, dmg: 300, hitSpeed: 1.0, range: "Melee", speed: "Very Fast", elixir: 2, special: "Building suicide bombers",
+        img: "https://api-assets.clashroyale.com/cards/300/wb.png" },
+      { name: "Skeleton Barrel", slug: "skeleton-barrel", rarity: "Common", hp: 420, dmg: 80, hitSpeed: 1.0, range: "Melee", speed: "Fast", elixir: 3, special: "Death skeleton drop",
+        img: "https://api-assets.clashroyale.com/cards/300/sb.png" },
+      { name: "Executioner", slug: "executioner", rarity: "Epic", hp: 1000, dmg: 140, hitSpeed: 2.4, range: "4.5", speed: "Medium", elixir: 5, special: "Axe through troops",
+        img: "https://api-assets.clashroyale.com/cards/300/exec.png" },
+      { name: "Hunter", slug: "hunter", rarity: "Epic", hp: 900, dmg: 100, hitSpeed: 2.2, range: "4", speed: "Medium", elixir: 4, special: "Shotgun burst",
+        img: "https://api-assets.clashroyale.com/cards/300/hunter.png" },
+      { name: "Electro Dragon", slug: "electro-dragon", rarity: "Epic", hp: 900, dmg: 140, hitSpeed: 2.1, range: "3.5", speed: "Medium", elixir: 5, special: "Chain lightning",
+        img: "https://api-assets.clashroyale.com/cards/300/edrag.png" },
+      { name: "Bowler", slug: "bowler", rarity: "Epic", hp: 1600, dmg: 240, hitSpeed: 2.5, range: "5", speed: "Slow", elixir: 5, special: "Knockback boulder",
+        img: "https://api-assets.clashroyale.com/cards/300/bowler.png" },
+      { name: "Goblin Drill", slug: "goblin-drill", rarity: "Epic", hp: 1100, dmg: 100, hitSpeed: 1.3, range: "Melee", speed: "Building", elixir: 4, special: "Surfaces under towers",
+        img: "https://api-assets.clashroyale.com/cards/300/gdrill.png" },
+      { name: "Poison", slug: "poison", rarity: "Epic", hp: 0, dmg: 90, hitSpeed: 0, range: "3.5 area", speed: "Spell", elixir: 4, special: "DoT + slow zone",
+        img: "https://api-assets.clashroyale.com/cards/300/poison.png" },
       { name: "The Log", slug: "the-log", rarity: "Legendary", hp: 0, dmg: 280, hitSpeed: 0, range: "Roll", speed: "Spell", elixir: 2, special: "Knockback roll",
         img: "https://api-assets.clashroyale.com/cards/300/_iDwuDLexHPFZDBCSQ_jUTM0OpEg4xJHvq4ziR0BQ1A.png" },
       { name: "Ice Wizard", slug: "ice-wizard", rarity: "Legendary", hp: 800, dmg: 80, hitSpeed: 1.7, range: "5.5", speed: "Medium", elixir: 3, special: "Slows everything",
@@ -1197,6 +1266,10 @@
         img: "https://api-assets.clashroyale.com/cards/300/Y4yWvdwBCg2FpAZgs8T09Gy34WOwpLZW-ttL52Ae8NE.png" },
       { name: "Phoenix", slug: "phoenix", rarity: "Legendary", hp: 1000, dmg: 180, hitSpeed: 1.0, range: "Melee", speed: "Fast", elixir: 4, special: "Respawns from an egg",
         img: "https://royaleapi.github.io/cr-api-assets/cards-150/phoenix.png" },
+      { name: "Bandit", slug: "bandit", rarity: "Legendary", hp: 900, dmg: 200, hitSpeed: 1.0, range: "Melee", speed: "Fast", elixir: 3, special: "Dash strike",
+        img: "https://api-assets.clashroyale.com/cards/300/bandit.png" },
+      { name: "Mother Witch", slug: "mother-witch", rarity: "Legendary", hp: 700, dmg: 110, hitSpeed: 1.1, range: "5.5", speed: "Medium", elixir: 4, special: "Curses into hogs",
+        img: "https://api-assets.clashroyale.com/cards/300/mwitch.png" },
       { name: "Skeleton King", slug: "skeleton-king", rarity: "Champion", hp: 2200, dmg: 220, hitSpeed: 1.6, range: "Melee", speed: "Medium", elixir: 4, special: "Soul collection + army",
         img: "https://api-assets.clashroyale.com/cards/300/dCd69_w3mRNYrP_zO6Hxe47OitbYbuKlWbNT9ToTSUw.png" },
       { name: "Golden Knight", slug: "golden-knight", rarity: "Champion", hp: 1800, dmg: 200, hitSpeed: 0.9, range: "Melee", speed: "Fast", elixir: 4, special: "Dash chain",
@@ -1232,33 +1305,23 @@
     // Ability text from Clash Royale Wiki / RoyaleAPI (official Evo ability names).
     // Only cards with a real Evo, Hero, or Champion kit can offer Special.
     var EVO_SPECIAL = {
-      "knight": "Evo Elbow Reflection: 60% less damage while moving (until he attacks)",
-      "archers": "Evo Power Shot: +50% damage to targets 4–6 tiles away (+1 range)",
-      "skeletons": "Evo Skele-Cloning: Each attack spawns another Skeleton (max 8)",
-      "tesla": "Evo Pulsating Voltage: Pulse damage + stun when surfacing/deploying",
-      "mortar": "Evo Green Siege: Every shot that lands also spawns a Goblin",
-      "cannon": "Evo Barrage Carnage: On deploy, bombs rain dealing damage + knockback",
-      "goblin-cage": "Evo Raging Cage: Pulls a ground troop in; Brawler hits it safely",
-      "goblin-barrel": "Evo Decoy Barrel: Spawns a real barrel and a decoy barrel",
-      "skeleton-barrel": "Evo: Extra barrel, more HP, and much higher death damage",
-      "zap": "Evo Short-Circuit: Lingering radius grows, restuns, and deals extra damage",
-      "battle-ram": "Evo Head-First Ram: Charge hits + knockback; double connect damage",
-      "ice-spirit": "Evo Frost Blast: Double freeze pattern + ground freeze zone",
-      "royal-giant": "Evo Royal Shockwave: Each shot makes a ground knockback shockwave",
-      "wall-breakers": "Evo Powder Barrels: Death barrels still run in and explode",
+      "knight": "Evo Elbow Reflection: 60% less damage while moving (until first attack)",
+      "archers": "Evo Power Shot: +50% damage to far targets (+1 range)",
+      "skeletons": "Evo Skele-Cloning: Each attack can spawn another skeleton (max 8)",
+      "mortar": "Evo Green Siege: Every shot that lands also spawns a goblin",
+      "zap": "Evo: Attacks briefly stun enemies",
+      "royal-giant": "Evo Royal Shockwave: Each shot creates a ground knockback wave",
       "wizard": "Evo Fiery Field: Shield that explodes for damage + knockback when broken",
-      "valkyrie": "Evo Whirlwind Axe: Each attack pulls troops in with a brief Tornado",
-      "executioner": "Evo Axe Smash: Extra damage + knockback in a wide axe zone",
-      "hunter": "Evo: Fires a second parallel shotgun burst",
-      "inferno-dragon": "Evo: Beam ramps faster and holds targets longer",
+      "valkyrie": "Evo Whirlwind Axe: Each attack briefly pulls nearby troops inward",
+      "executioner": "Evo Axe Smash: Extra damage + knockback in a wide zone",
       "mega-knight": "Evo Mega Uppercut: Each hit knocks the target toward the Crown Tower",
-      "mini-pekka": "Evo: Powers up after damaging a troop",
-      "musketeer": "Evo Sniper Shot: 3 long-range sniper shots with +80% damage",
-      "pekka": "Evo Butter-Heal: Heals after each kill; can overheal up to +66% HP",
-      "dart-goblin": "Evo: Darts poison targets over time",
-      "lumberjack": "Evo: Hits apply rage; stronger rage drop on death",
-      "witch": "Evo Boned-aid: Spawns Skeletons; heals when her Skeletons die (can overheal)"
-      // Ice Wizard has no Evolution in-game — do not invent one
+      "musketeer": "Evo Sniper Shot: Three long-range shots with heavy bonus damage",
+      "pekka": "Evo Butter-Heal: Heals after each kill (can overheal)",
+      "dart-goblin": "Evo: Attacks poison targets over time",
+      "lumberjack": "Drops Rage when defeated",
+      "witch": "Evo Boned-aid: Spawns skeletons; heals when they die (can overheal)",
+      "cannon": "Evo Barrage: On deploy, bombs rain for damage + knockback"
+      // Removed card-specific kits (barrel/bats/bomber/cage/hunter/ice-spirit/tesla/wall-breakers/etc.)
     };
     var HERO_SPECIAL = {
       "mini-pekka": "Hero Breakfast Boost: Spend 1 Elixir to level up +1 to +5 (pancake meter)"
@@ -1293,33 +1356,98 @@
       if (EVO_SPECIAL[slug]) {
         return { blocked: false, text: EVO_SPECIAL[slug], scoreKey: EVO_SPECIAL[slug], tag: "evo" };
       }
-      // Unique non-evo kits (e.g. Phoenix egg respawn) — still stealable
-      if (slug === "phoenix") {
-        return { blocked: false, text: "Respawns from an egg", scoreKey: "Respawns from an egg", tag: "unique" };
+      // Unique non-evo kits — still stealable (legendaries / signature abilities)
+      var UNIQUE_SPECIAL = {
+        "phoenix": "Respawns from an egg after death",
+        "bandit": "Dash strike through the first target",
+        "mother-witch": "Curses enemy troops into Royal Hogs",
+        "miner": "Can be deployed anywhere on the map",
+        "fisherman": "Hooks an enemy troop toward himself",
+        "royal-ghost": "Invisible until he attacks, then deals splash",
+        "night-witch": "Periodically spawns bats",
+        "electro-wizard": "Stuns on spawn and on every hit",
+        "ice-wizard": "Slows everything he hits",
+        "balloon": "Explodes for death damage when destroyed",
+        "prince": "Charge doubles damage on first hit",
+        "dark-prince": "Charge attack with 360° splash",
+        "electro-dragon": "Chain lightning across nearby troops",
+        "goblin-drill": "Surfaces under the opposing tower",
+        "hog-rider": "Jumps the river straight to buildings",
+        "ram-rider": "Snares the first target she hits"
+      };
+      if (UNIQUE_SPECIAL[slug]) {
+        return { blocked: false, text: UNIQUE_SPECIAL[slug], scoreKey: UNIQUE_SPECIAL[slug], tag: "unique" };
       }
       return { blocked: true, text: "No Evo/Hero ability", scoreKey: "", tag: null };
     }
 
     function specialScore(s) {
       var t = (s || "").toLowerCase();
-      if (!t || t.indexOf("no evo") >= 0 || t.indexOf("no special") >= 0) return 4;
-      var sc = 5.0;
-      if (t.indexOf("evo") >= 0) sc += 0.8;
-      if (t.indexOf("hero") >= 0) sc += 1.5;
-      if (t.indexOf("champ ability") >= 0) sc += 1.4;
-      if (t.indexOf("boned-aid") >= 0 || (t.indexOf("skeleton") >= 0 && t.indexOf("heal") >= 0)) sc += 3.2; // Witch evo ~9/10
-      if (t.indexOf("heal") >= 0 || t.indexOf("overheal") >= 0 || t.indexOf("butter-heal") >= 0) sc += 1.6;
-      if (t.indexOf("level up") >= 0 || t.indexOf("breakfast") >= 0 || t.indexOf("+5") >= 0) sc += 1.7;
-      if (t.indexOf("60%") >= 0 || t.indexOf("elbow reflection") >= 0 || t.indexOf("less damage") >= 0) sc += 1.3;
-      if (t.indexOf("sniper") >= 0 || t.indexOf("power shot") >= 0) sc += 1.4;
-      if (t.indexOf("uppercut") >= 0 || t.indexOf("knockback") >= 0 || t.indexOf("shockwave") >= 0) sc += 1.3;
-      if (t.indexOf("tornado") >= 0 || t.indexOf("pull") >= 0 || t.indexOf("whirlwind") >= 0) sc += 1.4;
-      if (t.indexOf("stun") >= 0 || t.indexOf("freeze") >= 0 || t.indexOf("slow") >= 0 || t.indexOf("poison") >= 0) sc += 1.2;
-      if (t.indexOf("respawn") >= 0 || t.indexOf("egg") >= 0) sc += 0.2; // Phoenix — modest (~4/10 after rank)
-      if (t.indexOf("spawn") >= 0 || t.indexOf("clone") >= 0 || t.indexOf("decoy") >= 0 || t.indexOf("army") >= 0) sc += 1.2;
-      if (t.indexOf("shield") >= 0 || t.indexOf("dash") >= 0 || t.indexOf("reflect") >= 0 || t.indexOf("cloak") >= 0) sc += 1.2;
-      if (t.indexOf("charge") >= 0 || t.indexOf("ramp") >= 0 || t.indexOf("rage") >= 0) sc += 1.1;
-      return Math.min(10, Math.max(4, sc));
+      if (!t || t.indexOf("no evo") >= 0 || t.indexOf("no special") >= 0) return 3;
+
+      // Target distribution: three 9s, five 8s, then a spread of 7→2.
+
+      // ===== 9/10 (exactly three) =====
+      if (t.indexOf("surfaces under") >= 0) return 9; // Goblin Drill
+      if (t.indexOf("deployed anywhere") >= 0 || t.indexOf("anywhere on the map") >= 0) return 9; // Miner
+      if (t.indexOf("breakfast") >= 0 || t.indexOf("pancake") >= 0 || t.indexOf("level up") >= 0) return 9; // Hero Mini P.E.K.K.A
+
+      // ===== 8/10 (exactly five) =====
+      if (t.indexOf("champ ability") >= 0 && t.indexOf("soul") >= 0) return 8; // Skeleton King
+      if (t.indexOf("champ ability") >= 0 && t.indexOf("cloak") >= 0) return 8; // Archer Queen
+      if (t.indexOf("boned-aid") >= 0) return 8; // Witch evo
+      if (t.indexOf("hooks an enemy") >= 0) return 8; // Fisherman
+      if (t.indexOf("stuns on spawn") >= 0) return 8; // Electro Wizard
+
+      // ===== 7/10 =====
+      if (t.indexOf("champ ability") >= 0 && t.indexOf("dash chain") >= 0) return 7; // Golden Knight
+      if (t.indexOf("champ ability") >= 0 && t.indexOf("reflect") >= 0) return 7; // Monk
+      if (t.indexOf("elbow reflection") >= 0 || (t.indexOf("60%") >= 0 && t.indexOf("less damage") >= 0)) return 7; // Knight evo
+      if (t.indexOf("invisible") >= 0) return 7; // Royal Ghost
+      if (t.indexOf("sniper shot") >= 0) return 7; // Musketeer evo
+
+      // ===== 6/10 =====
+      if (t.indexOf("champ ability") >= 0 && t.indexOf("drill underground") >= 0) return 6; // Mighty Miner
+      if (t.indexOf("whirlwind") >= 0 || t.indexOf("pulls nearby") >= 0) return 6; // Valkyrie evo
+      if (t.indexOf("uppercut") >= 0) return 6; // Mega Knight evo
+      if (t.indexOf("dash strike") >= 0) return 6; // Bandit
+      if (t.indexOf("curses") >= 0) return 6; // Mother Witch
+      if (t.indexOf("spawns bats") >= 0) return 6; // Night Witch
+      if (t.indexOf("snares the first") >= 0 || t.indexOf("snare") >= 0) return 6; // Ram Rider
+
+      // ===== 5/10 =====
+      if (t.indexOf("respawns from an egg") >= 0) return 5; // Phoenix
+      if (t.indexOf("champ ability") >= 0 && t.indexOf("guardian") >= 0) return 5; // Little Prince
+      if (t.indexOf("power shot") >= 0) return 5; // Archers evo
+      if (t.indexOf("fiery field") >= 0) return 5; // Wizard evo
+      if (t.indexOf("briefly stun") >= 0 || (t.indexOf("stun") >= 0 && t.indexOf("attack") >= 0 && t.indexOf("spawn") < 0)) return 5; // Zap evo
+      if (t.indexOf("green siege") >= 0 || t.indexOf("spawns a goblin") >= 0) return 5; // Mortar evo
+      if (t.indexOf("royal shockwave") >= 0 || t.indexOf("knockback wave") >= 0) return 5; // RG evo
+      if (t.indexOf("skele-cloning") >= 0) return 5; // Skeletons evo
+      if (t.indexOf("slows everything") >= 0) return 5; // Ice Wizard
+      if (t.indexOf("chain lightning") >= 0) return 5; // Electro Dragon
+
+      // ===== 4/10 =====
+      if (t.indexOf("axe smash") >= 0) return 4; // Executioner evo
+      if (t.indexOf("poison targets") >= 0) return 4; // Dart Goblin evo
+      if (t.indexOf("360") >= 0 && t.indexOf("splash") >= 0) return 4; // Dark Prince
+      if (t.indexOf("barrage") >= 0) return 4; // Cannon evo
+      if (t.indexOf("charge doubles") >= 0) return 4; // Prince
+
+      // ===== 3/10 =====
+      if (t.indexOf("butter-heal") >= 0) return 3; // PEKKA evo
+      if (t.indexOf("death damage") >= 0 || t.indexOf("explodes for death") >= 0) return 3; // Balloon
+      if (t.indexOf("jumps the river") >= 0) return 3; // Hog Rider
+
+      // ===== 2/10 =====
+      if (t.indexOf("drops rage when defeated") >= 0 || (t.indexOf("rage") >= 0 && t.indexOf("defeated") >= 0)) return 2;
+      if (t.indexOf("rage drop on death") >= 0 || t.indexOf("stronger rage") >= 0) return 2;
+
+      var sc = 4.0;
+      if (t.indexOf("evo") >= 0) sc += 0.4;
+      if (t.indexOf("hero") >= 0) sc += 1.2;
+      if (t.indexOf("champ ability") >= 0) sc += 1.0;
+      return Math.min(6, Math.max(3, Math.round(sc)));
     }
     function numericValue(card, key) {
       if (key === "special") {
@@ -1355,36 +1483,54 @@
       });
     }
     // CARD_ROLES is declared below — pools rebuilt after roles exist
+    function elixirGrade(cost) {
+      // Absolute elixir grades — lower cost is better
+      // 1→10, 2→9, 3→7, 4→5, 5→3, 6→2, 7+→1
+      var e = Number(cost);
+      if (isNaN(e)) return 3;
+      if (e <= 1) return 10;
+      if (e <= 2) return 9;
+      if (e <= 3) return 7;
+      if (e <= 4) return 5;
+      if (e <= 5) return 3;
+      if (e <= 6) return 2;
+      return 1;
+    }
+
     function getGrade(card, key) {
-      // Blocked stats never shown; if called, return floor
+      // Special: use balanced specialScore directly (not rank inflation)
       if (key === "special") {
         var sp = resolveSpecial(card);
-        if (sp.blocked) return 4;
+        if (sp.blocked) return 3;
+        try {
+          var sc = specialScore(sp.scoreKey || sp.text || "");
+          return Math.max(2, Math.min(10, Math.round(sc)));
+        } catch (e0) { return 4; }
+      }
+      // Elixir: absolute cost map (5 elixir = 3/10)
+      if (key === "elixir") {
+        return elixirGrade(card && card.elixir);
       }
       if (key === "hitSpeed" && isSpellCard(card)) return 1;
 
       var pool = GRADE_POOLS[key];
-      if (!pool || !pool.length) return key === "special" ? 4 : 5;
+      if (!pool || !pool.length) return 5;
       var idx = -1;
       for (var i = 0; i < pool.length; i++) {
         if (pool[i].card === card) { idx = i; break; }
       }
-      if (idx < 0) {
-        // Not in pool (e.g. spell on hitSpeed) — weak default
-        return key === "special" ? 4 : 3;
-      }
+      if (idx < 0) return 3;
       var n = pool.length;
-      // 1–3 perfect 10/10s at the top of each category, then linear drop
-      var topTens = n >= 30 ? 3 : (n >= 12 ? 2 : 1);
+      // Fewer free 10s — only the true top of each pool
+      var topTens = n >= 40 ? 2 : 1;
       if (idx < topTens) return 10;
-      var minG = key === "special" ? 4 : 1;
+      var minG = 1;
       var rest = Math.max(1, n - topTens);
-      var rank = idx - topTens; // 0 .. rest-1
-      // Linear: first after tens → 9, last → minG
-      var g = Math.round(9 - (rank * (9 - minG) / Math.max(1, rest - 1)));
-      g = Math.max(minG, Math.min(9, g));
-      if (key === "special") g = Math.max(4, g);
-      return g;
+      var rank = idx - topTens;
+      // Spread more mass into the 3–6 band instead of 7–9
+      // Map rank 0 → 8, then curve down to minG
+      var g = Math.round(8 - (rank * (8 - minG) / Math.max(1, rest - 1)));
+      return Math.max(minG, Math.min(8, g));
     }
     function gradeClass(g) { return "grade-" + g; }
     function rarityClass(r) { return "rarity-" + r.toLowerCase(); }
@@ -1398,12 +1544,10 @@
     // Only REAL in-game variants. No invented Hero/Evo (e.g. no Hero Ice Wizard).
     // mini-pekka uses Hero kit in-game for ability text; deck slot uses evo when applicable.
     var CARD_ROLES = {
-      "knight": "evo", "archers": "evo", "skeletons": "evo", "tesla": "evo", "mortar": "evo",
-      "cannon": "evo", "goblin-cage": "evo", "goblin-barrel": "evo", "skeleton-barrel": "evo",
-      "zap": "evo", "battle-ram": "evo", "ice-spirit": "evo",
-      "royal-giant": "evo", "wall-breakers": "evo", "wizard": "evo", "valkyrie": "evo",
-      "executioner": "evo", "hunter": "evo", "inferno-dragon": "evo", "mega-knight": "evo",
-      "mini-pekka": "evo", "musketeer": "evo", "pekka": "evo", "witch": "evo",
+      "knight": "evo", "archers": "evo", "skeletons": "evo", "mortar": "evo",
+      "cannon": "evo", "zap": "evo", "royal-giant": "evo", "wizard": "evo", "valkyrie": "evo",
+      "executioner": "evo", "mega-knight": "evo",
+      "musketeer": "evo", "pekka": "evo", "witch": "evo",
       "dart-goblin": "evo", "lumberjack": "evo",
       "skeleton-king": "champ", "golden-knight": "champ", "archer-queen": "champ",
       "mighty-miner": "champ", "monk": "champ", "little-prince": "champ"
@@ -1524,7 +1668,7 @@
       img.src = urls[0];
     }
 
-    var state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [] };
+    var state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [], rerollsLeft: 1, awaitingPick: false };
 
     function loadSettings() {
       try {
@@ -1556,7 +1700,7 @@
     }
 
     function startGame() {
-      state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [] };
+      state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [], rerollsLeft: 1, awaitingPick: false };
       renderProgress();
       renderBuildList();
       resetWheelUI();
@@ -1603,7 +1747,7 @@
       var m = document.getElementById("rbMeta");
       if (y) y.textContent = myName + " · " + myElo;
       if (o) o.textContent = oppName + " · " + oppElo;
-      if (m) m.textContent = "Arena " + myArena.id + " " + myArena.name + "  vs  Arena " + oppArena.id + " " + oppArena.name + " · grades off";
+      if (m) m.textContent = "Arena " + myArena.id + " " + myArena.name + "  vs  Arena " + oppArena.id + " " + oppArena.name;
     }
 
     function rankedFormatTime(sec) {
@@ -1625,14 +1769,85 @@
         rankedTimerLeft -= 1;
         if (el) {
           el.textContent = rankedFormatTime(rankedTimerLeft);
-          el.className = "rb-timer" + (rankedTimerLeft <= 30 ? " danger" : rankedTimerLeft <= 60 ? " warn" : "");
+          if (rankedTimerLeft <= 15) el.className = "rb-timer flash";
+          else if (rankedTimerLeft <= 30) el.className = "rb-timer danger";
+          else if (rankedTimerLeft <= 60) el.className = "rb-timer warn";
+          else el.className = "rb-timer";
         }
         if (rankedTimerLeft <= 0) {
           clearInterval(rankedTimerId);
           rankedTimerId = null;
-          try { finishBuild(); } catch (e) {}
+          try { rankedOnTimerExpire(); } catch (e) { console.error(e); }
         }
       }, 1000);
+    }
+
+    /** Timer expired: finished player wins if opponent unfinished; both unfinished = draw. */
+    function rankedOnTimerExpire() {
+      if (!mp || !mp.ranked || mp.resultShown) return;
+      // Mark opponent disconnected presence checks no longer matter
+      if (mp.myDone && mp.oppDone) {
+        mpRevealResults();
+        return;
+      }
+      if (mp.myDone && !mp.oppDone) {
+        // You finished, opponent did not → you win by timeout
+        mp.oppDone = true;
+        mp.oppScore = -1;
+        mp.oppLabel = "Timeout / unfinished";
+        mpSend({ t: "timeout-win", score: mp.myScore, label: mp.myLabel || "Your Card" });
+        mpRevealResults();
+        return;
+      }
+      if (!mp.myDone && mp.oppDone) {
+        // Opponent finished, you did not → loss
+        mp.myDone = true;
+        mp.myScore = -1;
+        mp.myLabel = "Timeout / unfinished";
+        mpSend({ t: "done", score: -1, label: "Timeout / unfinished" });
+        mpRevealResults();
+        return;
+      }
+      // Neither finished → draw
+      mp.myDone = true;
+      mp.oppDone = true;
+      mp.myScore = -1;
+      mp.oppScore = -1;
+      mp.myLabel = "Timeout";
+      mp.oppLabel = "Timeout";
+      mpSend({ t: "timeout-draw" });
+      mpRevealResults();
+    }
+
+    /** Opponent left / went silent during ranked race → local win. */
+    function rankedOnOpponentDisconnect(reason) {
+      if (!mp || !mp.ranked || mp.resultShown || !mp.active) return;
+      if (mp.myDone && mp.oppDone) {
+        mpRevealResults();
+        return;
+      }
+      mp.oppConnected = false;
+      mp.oppDone = true;
+      mp.oppScore = -1;
+      mp.oppLabel = reason || "Disconnected";
+      if (!mp.myDone) {
+        // Lock in whatever partial score we have by finishing the build, or forfeit score 0
+        try {
+          // Prefer finishing current card if categories filled; else score 0 still beats -1
+          var filled = 0;
+          for (var i = 0; i < CATEGORIES.length; i++) {
+            if (state.build && state.build[CATEGORIES[i].key]) filled++;
+          }
+          if (filled >= CATEGORIES.length) {
+            finishBuild();
+            return; // finishBuild → mpOnLocalDone → will see oppDone
+          }
+        } catch (e) {}
+        mp.myDone = true;
+        mp.myScore = Math.max(0, Number(mp.myScore) || 0);
+        mp.myLabel = mp.myLabel || "Your Card";
+      }
+      mpRevealResults();
     }
 
     function availableCards() {
@@ -1668,6 +1883,8 @@
       document.getElementById("statChoices").classList.add("hidden");
       document.getElementById("statChoices").innerHTML = "";
       setWheelVisual(null);
+      state.awaitingPick = false;
+      try { updateRerollButton(); } catch (e) {}
     }
 
     function renderProgress() {
@@ -1732,10 +1949,50 @@
           } catch (eVis) {}
           display.classList.remove("spinning");
           state.spinning = false;
+          state.awaitingPick = true;
+          updateRerollButton();
           // Always present choices (including the final remaining attribute)
           setTimeout(function() { showStatChoices(final); }, 30);
         }
       }, 70);
+    }
+
+    function updateRerollButton() {
+      var btn = document.getElementById("rerollBtn");
+      var hint = document.getElementById("rerollHint");
+      if (!btn) return;
+      var left = state.rerollsLeft != null ? state.rerollsLeft : 0;
+      btn.textContent = left > 0 ? ("Reroll (" + left + " left)") : "No rerolls left";
+      // Only offer reroll after a spin lands and before a stat is stolen
+      var can = left > 0 && state.awaitingPick && !state.spinning && !!state.currentCard;
+      if (can) btn.classList.remove("hidden");
+      else btn.classList.add("hidden");
+      if (hint) {
+        if (left > 0 && !state.awaitingPick) hint.classList.remove("hidden");
+        else hint.classList.add("hidden");
+      }
+    }
+
+    function rerollWheel() {
+      if (state.spinning) return;
+      if (!state.awaitingPick || !state.currentCard) return;
+      if ((state.rerollsLeft || 0) <= 0) return;
+      state.rerollsLeft -= 1;
+      // Free the current card so the pool stays fair
+      var slug = state.currentCard.slug;
+      if (slug && state.usedSlugs) {
+        var ix = state.usedSlugs.indexOf(slug);
+        if (ix >= 0) state.usedSlugs.splice(ix, 1);
+      }
+      state.currentCard = null;
+      state.awaitingPick = false;
+      document.getElementById("statChoices").classList.add("hidden");
+      document.getElementById("statChoices").innerHTML = "";
+      document.getElementById("spinBtn").classList.remove("hidden");
+      document.getElementById("spinBtn").disabled = false;
+      updateRerollButton();
+      // Auto-spin the replacement
+      spinWheel();
     }
 
     function remainingCategories() {
@@ -1748,9 +2005,21 @@
     }
 
     /** Categories this card is allowed to offer (spells block hit speed; no evo/hero/champ blocks special). */
+    function isBuildingCard(card) {
+      if (!card) return false;
+      if (card.speed === "Building") return true;
+      var s = card.slug || "";
+      // Buildings / structure-like units — movement is not a meaningful steal
+      return s === "mortar" || s === "cannon" || s === "tesla" || s === "inferno-tower" ||
+        s === "x-bow" || s === "goblin-cage" || s === "goblin-drill" || s === "bomb-tower" ||
+        s === "furnace" || s === "tombstone" || s === "elixir-collector";
+    }
+
     function isCategoryAvailableOnCard(card, catKey) {
       if (!card || !catKey) return false;
       if (catKey === "hitSpeed" && isSpellCard(card)) return false;
+      // Buildings (Mortar, Drill, Tesla, etc.) cannot offer Movement
+      if (catKey === "speed" && isBuildingCard(card)) return false;
       if (catKey === "special") {
         var sp = resolveSpecial(card);
         if (sp.blocked) return false;
@@ -1899,6 +2168,8 @@
       }
       state.currentCard = null;
       state.spinning = false;
+      state.awaitingPick = false;
+      try { updateRerollButton(); } catch (eR) {}
 
       var left = remainingCategories();
       if (!left.length) {
@@ -1915,6 +2186,7 @@
       try { renderProgress(); } catch (e1) {}
       try { renderBuildList(); } catch (e2) {}
       resetWheelUI();
+      try { updateRerollButton(); } catch (eR2) {}
     }
 
 
@@ -2008,10 +2280,39 @@
       return Math.round((u * 0.55 + (w - 48) * 4.5) * 10) / 10;
     }
 
+    function projectedUsageFromScore(score) {
+      // Slightly nerfed usage — C-tier sits a bit lower on the board
+      // 99≈15%, 90≈9%, 85≈6.5%, 75≈4.5%, 70≈3.8%, 65≈3.4%, 55≈1.5%, 50≈0.9%
+      var s = Number(score) || 0;
+      var u;
+      if (s >= 90) u = 9 + (s - 90) * (6 / 9);            // 90→9, 99→15
+      else if (s >= 85) u = 6.5 + (s - 85) * (2.5 / 5);    // 85→6.5, 90→9
+      else if (s >= 75) u = 4.5 + (s - 75) * (2 / 10);     // 75→4.5, 85→6.5
+      else if (s >= 70) u = 3.8 + (s - 70) * (0.7 / 5);    // 70→3.8, 75→4.5
+      else if (s >= 62) u = 3.2 + (s - 62) * (0.6 / 8);    // C-tier ~3.2–3.8%
+      else if (s >= 50) u = 0.9 + (s - 50) * (2.3 / 12);   // D-tier ~0.9–3%
+      else u = Math.max(0.2, 0.9 - (50 - s) * 0.04);
+      return Math.max(0.2, Math.min(25, u));
+    }
+
+
+    function projectedWinFromScore(score) {
+      // Keep win rates realistic so composite rank tracks usage tier
+      // 99→54.5, 90→52.5, 75→51, 70→50.5, 65→50.3, 55→49.6, 50→49.2
+      var s = Number(score) || 0;
+      var w;
+      if (s >= 90) w = 52.5 + (s - 90) * (2.0 / 9);
+      else if (s >= 75) w = 51.0 + (s - 75) * (1.5 / 15);
+      else if (s >= 70) w = 50.55 + (s - 70) * (0.45 / 5);
+      else if (s >= 62) w = 50.35 + (s - 62) * (0.2 / 8);
+      else if (s >= 50) w = 49.2 + (s - 50) * (1.0 / 12);
+      else w = 48.5 + (s - 40) * 0.07;
+      return Math.max(40, Math.min(60, w));
+    }
+
     function buildMetaRanking(playerScore) {
-      var projWin = 48 + (playerScore - 40) * 0.12;
-      var projUsage = Math.max(0.3, Math.min(60, (playerScore - 35) * 0.55));
-      projWin = Math.max(47.5, Math.min(60, projWin));
+      var projUsage = projectedUsageFromScore(playerScore);
+      var projWin = projectedWinFromScore(playerScore);
 
       var rows = UC_META.map(function(c) {
         return {
@@ -2067,66 +2368,146 @@
       {
         id: "mortarbait",
         name: "Mortar Bait",
-        why: "UC staple: Evo Mortar pressure while baiting small spells with barrels and swarms. Your card plugs a defensive or cycle hole.",
+        why: "Evo Mortar chip while barrels and swarms bait small spells. Your card plugs defense or cycle.",
         tags: ["mortar", "bait", "siege", "cycle"],
-        core: ["mortar", "skeleton-barrel", "cannon-cart", "goblin-barrel"],
-        support: ["rascals", "minions", "goblins", "dart-goblin"],
-        spells: ["fireball", "barbarian-barrel", "zap", "the-log"],
-        building: ["cannon", "tesla"]
-      },
-      {
-        id: "bridgespam",
-        name: "Bridge Spam",
-        why: "Fast bridge pressure. Bandit, Ghost, and Ram open lanes while your card fills support or secondary threat.",
-        tags: ["fast", "spam", "bandit", "ram"],
-        core: ["battle-ram", "bandit", "royal-ghost", "dark-prince", "ram-rider"],
-        support: ["electro-wizard", "magic-archer", "mother-witch", "zappies"],
-        spells: ["barbarian-barrel", "fireball", "zap", "the-log"],
-        building: ["cannon", "tombstone"]
-      },
-      {
-        id: "hogcycle",
-        name: "Hog Cycle",
-        why: "Classic ladder grind: cheap cycle, Hog chip, tight defense. Your card is cycle support or a second threat.",
-        tags: ["hog", "cycle", "cheap"],
-        core: ["hog-rider", "ice-golem", "cannon", "musketeer"],
-        support: ["ice-spirit", "skeletons", "ice-wizard", "archers", "electro-spirit"],
-        spells: ["the-log", "fireball", "earthquake", "zap"],
+        core: ["mortar", "skeleton-barrel", "goblin-barrel", "knight"],
+        support: ["dart-goblin", "goblins", "archers", "bats"],
+        spells: ["fireball", "the-log", "zap", "arrows"],
         building: ["cannon", "tesla"]
       },
       {
         id: "hogquake",
         name: "Hog Earthquake",
-        why: "Building-melting Hog pressure with EQ. Popular on UC for punishing tanks and towers.",
-        tags: ["hog", "earthquake"],
-        core: ["hog-rider", "earthquake", "cannon", "knight"],
-        support: ["ice-spirit", "skeletons", "archers", "electro-spirit"],
-        spells: ["earthquake", "the-log", "zap", "fireball"],
+        why: "Hog + EQ melts buildings and towers. Tight cycle defense into relentless chip.",
+        tags: ["hog", "earthquake", "cycle"],
+        core: ["hog-rider", "cannon", "knight", "musketeer"],
+        support: ["ice-spirit", "skeletons", "archers", "electro-wizard"],
+        spells: ["earthquake", "the-log", "fireball", "zap"],
         building: ["cannon", "tesla"]
+      },
+      {
+        id: "hogcycle",
+        name: "Hog Cycle",
+        why: "Cheap cycle Hog pressure with a solid defensive core. Your card is support or second threat.",
+        tags: ["hog", "cycle", "cheap"],
+        core: ["hog-rider", "cannon", "musketeer", "ice-wizard"],
+        support: ["ice-spirit", "skeletons", "archers", "knight"],
+        spells: ["the-log", "fireball", "zap", "rocket"],
+        building: ["cannon", "tesla"]
+      },
+      {
+        id: "drillcycle",
+        name: "Goblin Drill Cycle",
+        why: "Drill surfaces under the tower while cheap defenders hold the bridge. High-skill chip control.",
+        tags: ["drill", "cycle", "goblin"],
+        core: ["goblin-drill", "skeletons", "ice-spirit", "cannon"],
+        support: ["royal-delivery", "bomb-tower", "valkyrie", "little-prince"],
+        spells: ["the-log", "royal-delivery", "zap", "poison"],
+        building: ["cannon", "bomb-tower", "tesla"]
+      },
+      {
+        id: "minerwb",
+        name: "Miner Wall Breakers",
+        why: "Miner tanking for Wall Breakers and chip support. Classic mid-cost pressure shell.",
+        tags: ["miner", "wall-breakers", "chip"],
+        core: ["miner", "wall-breakers", "bats", "spear-goblins"],
+        support: ["magic-archer", "mega-knight", "valkyrie", "bomb-tower"],
+        spells: ["zap", "the-log", "fireball", "arrows"],
+        building: ["bomb-tower", "cannon"]
+      },
+      {
+        id: "minerpoison",
+        name: "Miner Control",
+        why: "Miner + Poison chip with sturdy mid-lane defense. Punishes overcommitments.",
+        tags: ["miner", "poison", "control"],
+        core: ["miner", "poison", "valkyrie", "magic-archer"],
+        support: ["inferno-dragon", "baby-dragon", "guards", "bomber"],
+        spells: ["poison", "the-log", "zap", "tornado"],
+        building: ["tesla", "cannon"]
       },
       {
         id: "bait",
         name: "Log Bait",
-        why: "Force out Log/Barrel then punish with Goblin Barrel. Your card is extra bait or a solid defensive answer.",
+        why: "Force out Log then punish with Goblin Barrel. Extra bait or a defensive answer fits cleanly.",
         tags: ["bait", "goblin", "barrel"],
-        core: ["goblin-barrel", "princess", "dart-goblin", "skeleton-barrel"],
-        support: ["knight", "rascals", "inferno-tower", "goblins"],
-        spells: ["the-log", "rocket", "zap", "barbarian-barrel"],
+        core: ["goblin-barrel", "princess", "dart-goblin", "goblin-gang"],
+        support: ["knight", "inferno-tower", "goblins", "skeleton-barrel"],
+        spells: ["the-log", "rocket", "zap", "fireball"],
         building: ["inferno-tower", "tesla"]
+      },
+      {
+        id: "bridgespam",
+        name: "Bridge Spam",
+        why: "Bandit, Ghost, and Ram open lanes fast. Your card is support fire or a secondary threat.",
+        tags: ["fast", "spam", "bandit", "ram"],
+        core: ["battle-ram", "bandit", "royal-ghost", "ram-rider"],
+        support: ["electro-wizard", "magic-archer", "mother-witch", "zappies"],
+        spells: ["barbarian-barrel", "fireball", "zap", "the-log"],
+        building: ["cannon", "tesla"]
+      },
+      {
+        id: "pekka",
+        name: "P.E.K.K.A Bridge Control",
+        why: "P.E.K.K.A deletes tanks; counter-push with Bandit and ranged support.",
+        tags: ["pekka", "control", "bridge"],
+        core: ["pekka", "bandit", "electro-wizard", "royal-ghost"],
+        support: ["magic-archer", "mother-witch", "dark-prince", "phoenix"],
+        spells: ["zap", "fireball", "lightning", "barbarian-barrel"],
+        building: ["tesla", "cannon"]
+      },
+      {
+        id: "rg",
+        name: "Royal Giant",
+        why: "RG snipes towers from range behind a fisherman/hook or cycle defense.",
+        tags: ["royal-giant", "siege", "tank"],
+        core: ["royal-giant", "fisherman", "mother-witch", "hunter"],
+        support: ["phoenix", "electro-spirit", "skeletons", "little-prince"],
+        spells: ["fireball", "zap", "the-log", "lightning"],
+        building: ["tesla", "cannon"]
+      },
+      {
+        id: "lavaloon",
+        name: "LavaLoon",
+        why: "Lava Hound tank into Balloon death bomb. Air support and a big spell close games.",
+        tags: ["lava", "balloon", "air"],
+        core: ["lava-hound", "balloon", "mega-minion", "tombstone"],
+        support: ["inferno-dragon", "baby-dragon", "minions", "guards"],
+        spells: ["fireball", "zap", "arrows", "tombstone"],
+        building: ["tombstone", "tesla"]
+      },
+      {
+        id: "controlmid",
+        name: "Poison Control",
+        why: "Chip with Poison and a sturdy mid-lane core. Punish overcommitments into a clean tower take.",
+        tags: ["poison", "control", "mid"],
+        core: ["poison", "baby-dragon", "knight", "bomber"],
+        support: ["phoenix", "bowler", "guards", "ice-wizard"],
+        spells: ["poison", "the-log", "zap", "arrows"],
+        building: ["tombstone", "tesla"]
+      },
+      {
+        id: "siege",
+        name: "X-Bow Siege",
+        why: "Lock the tower from range. Cycle troops and a defensive building protect the X-Bow.",
+        tags: ["x-bow", "siege", "cycle"],
+        core: ["x-bow", "tesla", "archers", "ice-golem"],
+        support: ["skeletons", "ice-spirit", "knight", "electro-spirit"],
+        spells: ["the-log", "fireball", "zap", "rocket"],
+        building: ["tesla", "cannon"]
       },
       {
         id: "beatdown",
         name: "Golem Beatdown",
-        why: "Big tank into a deathball. Night Witch / BBD style support rides behind the Golem.",
+        why: "Golem deathball with Night Witch and air splash. Lightning or Poison finishes tanks.",
         tags: ["golem", "tank", "beatdown"],
         core: ["golem", "night-witch", "baby-dragon", "mega-minion"],
-        support: ["lumberjack", "electro-dragon", "bowler", "witch", "phoenix"],
-        spells: ["lightning", "tornado", "zap", "poison"],
+        support: ["lumberjack", "electro-dragon", "phoenix", "witch"],
+        spells: ["lightning", "zap", "poison", "tornado"],
         building: ["elixir-collector", "tombstone"]
       },
       {
         id: "giant",
-        name: "Giant Midladder Control",
+        name: "Giant Beatdown",
         why: "Giant as the win condition with splash support. Reliable mid-cost beatdown shell.",
         tags: ["giant", "mid"],
         core: ["giant", "musketeer", "mini-pekka", "baby-dragon"],
@@ -2135,114 +2516,14 @@
         building: ["tombstone", "cannon"]
       },
       {
-        id: "pekka",
-        name: "P.E.K.K.A Bridge Control",
-        why: "P.E.K.K.A shuts down tanks; counter-push with support. Strong answer-heavy UC shell.",
-        tags: ["pekka", "control"],
-        core: ["pekka", "bandit", "electro-wizard", "royal-ghost"],
-        support: ["magic-archer", "dark-prince", "zappies", "mother-witch"],
-        spells: ["zap", "fireball", "lightning", "barbarian-barrel"],
-        building: ["tesla", "tombstone"]
-      },
-      {
-        id: "siege",
-        name: "X-Bow Siege",
-        why: "Lock the tower from range. Cycle and defensive buildings protect the X-Bow window.",
-        tags: ["x-bow", "siege"],
-        core: ["x-bow", "tesla", "ice-golem", "archers"],
-        support: ["skeletons", "knight", "electro-spirit", "ice-wizard"],
-        spells: ["the-log", "fireball", "arrows", "zap"],
-        building: ["tesla", "cannon"]
-      },
-      {
-        id: "rg",
-        name: "Royal Giant Cycle",
-        why: "Evo RG pressure from the bridge with Fisherman / Hunter style support — UC regular.",
-        tags: ["royal-giant", "cycle"],
-        core: ["royal-giant", "fisherman", "hunter", "mother-witch"],
-        support: ["electro-spirit", "skeletons", "zappies", "phoenix"],
-        spells: ["fireball", "zap", "the-log", "earthquake"],
-        building: ["tombstone", "cannon"]
-      },
-      {
-        id: "rhogs",
-        name: "Royal Hogs Cycle",
-        why: "Split-lane Hogs force awkward answers. EQ or Fireball finishes buildings and towers.",
-        tags: ["royal-hogs", "cycle"],
-        core: ["royal-hogs", "earthquake", "cannon", "ice-golem"],
-        support: ["skeletons", "ice-spirit", "archers", "electro-spirit"],
-        spells: ["earthquake", "the-log", "fireball", "zap"],
-        building: ["cannon", "tesla"]
-      },
-      {
-        id: "control",
-        name: "Midrange Control",
-        why: "Answer everything, then counter-push. Splash tanks and spells control the pace.",
-        tags: ["control", "mid"],
-        core: ["valkyrie", "bowler", "executioner", "baby-dragon"],
-        support: ["tornado", "electro-wizard", "hunter", "fisherman"],
-        spells: ["poison", "tornado", "barbarian-barrel", "fireball"],
-        building: ["tombstone", "cannon"]
-      },
-      {
-        id: "lavaloon",
-        name: "LavaLoon",
-        why: "Air beatdown classic. Lava Hound tanks while Balloon connects for huge tower damage.",
-        tags: ["lava", "balloon", "air"],
-        core: ["lava-hound", "balloon", "tombstone", "mega-minion"],
-        support: ["baby-dragon", "inferno-dragon", "minions", "skeleton-dragons"],
-        spells: ["fireball", "zap", "arrows", "tombstone"],
-        building: ["tombstone"]
-      },
-      {
-        id: "gy",
-        name: "Graveyard Control",
-        why: "Poison + Graveyard on tower after a tank or freeze window. UC control favorite.",
-        tags: ["graveyard", "poison"],
-        core: ["graveyard", "poison", "baby-dragon", "knight"],
-        support: ["ice-wizard", "bowler", "tornado", "archers"],
-        spells: ["poison", "barbarian-barrel", "freeze", "tornado"],
-        building: ["tombstone", "cannon"]
-      },
-      {
-        id: "miner",
-        name: "Miner Control",
-        why: "Miner chip plus flexible defense. Pairs with poison or wall breakers for tower damage.",
-        tags: ["miner", "control"],
-        core: ["miner", "poison", "wall-breakers", "inferno-dragon"],
-        support: ["bats", "skeleton-army", "knight", "archers"],
-        spells: ["poison", "the-log", "zap", "barbarian-barrel"],
-        building: ["inferno-tower", "tesla"]
-      },
-      {
-        id: "wallbreakers",
-        name: "Wall Breakers Bait",
-        why: "Fast chip with Wall Breakers while baiting spells — high-tempo UC cycle option.",
-        tags: ["wall-breakers", "bait", "cycle"],
-        core: ["wall-breakers", "goblin-barrel", "skeleton-barrel", "dart-goblin"],
-        support: ["knight", "rascals", "goblins", "princess"],
-        spells: ["the-log", "zap", "rocket", "barbarian-barrel"],
-        building: ["inferno-tower", "cannon"]
-      },
-      {
-        id: "drill",
-        name: "Goblin Drill Cycle",
-        why: "Drill pops under the tower for constant chip. Cycle tools keep the pressure looping.",
-        tags: ["drill", "cycle", "goblin"],
-        core: ["goblin-drill", "bomber", "skeletons", "ice-spirit"],
-        support: ["knight", "archers", "cannon", "goblins"],
-        spells: ["the-log", "fireball", "zap", "arrows"],
-        building: ["cannon", "tesla"]
-      },
-      {
         id: "sparky",
-        name: "Sparky Beatdown",
-        why: "Charge Sparky behind a tank. One connect wins the game — high risk, high reward.",
-        tags: ["sparky", "tank"],
+        name: "Sparky Control",
+        why: "Sparky one-shot threats with tank support. Zap-heavy metas make this a lab pick.",
+        tags: ["sparky", "control"],
         core: ["sparky", "giant", "electro-wizard", "mini-pekka"],
-        support: ["zap", "wizard", "hunter", "dark-prince"],
-        spells: ["zap", "fireball", "lightning", "arrows"],
-        building: ["tombstone", "cannon"]
+        support: ["guardians", "zap", "dark-prince", "hunter"],
+        spells: ["zap", "lightning", "the-log", "fireball"],
+        building: ["tesla", "cannon"]
       }
     ];
 
@@ -2964,8 +3245,9 @@
     } catch (w2) {}
 
     function addLeaderboardEntry(score, build, customName) {
-      var projWin = 48 + (score - 40) * 0.12;
-      projWin = Math.max(47.5, Math.min(60, projWin)); // max 60% win rate
+      var projWin = typeof projectedWinFromScore === "function"
+        ? projectedWinFromScore(score)
+        : Math.max(40, Math.min(60, 41 + (score - 40) * 0.3));
       var sources = [];
       var stats = {};
       for (var i = 0; i < CATEGORIES.length; i++) {
@@ -3185,136 +3467,132 @@
         var maxG = Math.max.apply(null, grades);
         // Target: screenshot-like builds (~55/70, several 9s + a 10) land ~95–96.
         // Perfect 70/70 still reaches 99. Weak drafts stay mid/low.
-        // Rating from grade sum (max 70):
-        // 67+ → 99 | 65–66 → 98 | then −1 per 2 sum points until 95 | then −1 per 1 sum point
-        if (sumG >= 67) {
+        // Harsher rating from grade sum (max 70):
+        // 68 → 99 | 67 → 98 | … −1 per sum point down to 50 → 81
+        // Below 50: −1.5 power per missing sum point
+        if (sumG >= 68) {
           score = 99;
-        } else if (sumG >= 65) {
-          score = 98;
+        } else if (sumG >= 50) {
+          score = 99 - (68 - sumG); // 67→98 … 50→81
         } else {
-          // 63–64 → 97, 61–62 → 96, 59–60 → 95, then 58 → 94, 57 → 93, …
-          var deficit = 67 - sumG; // ≥ 3 when here
-          var stepped = 98 - Math.floor((deficit - 2) / 2);
-          if (stepped >= 95) {
-            score = stepped;
-          } else {
-            // 1:1 from sum 58 downward (score 95 at sum 59–60 already handled above)
-            score = 95 - (58 - sumG);
-          }
+          score = 81 - (50 - sumG) * 1.5;
         }
-        if (minG <= 2) score -= 2;
+        if (minG <= 2) score -= 3;
+        else if (minG <= 3) score -= 1;
         var hp = (b.hp && b.hp.value) || 0;
         var dmg = (b.dmg && b.dmg.value) || 0;
         var el = (b.elixir && b.elixir.value) || 5;
-        if (el >= 8) score -= 1;
-        if (hp > 3500 && dmg < 150) score -= 1;
-        if (dmg >= 1000 && hp > 0 && hp < 400) score -= 1;
-        // Never award 99 without ≥67/70 after penalties
-        if (sumG < 67) score = Math.min(98, score);
-        score = Math.max(38, Math.min(99, Math.round(score)));
+        if (el >= 8) score -= 2;
+        if (el >= 9) score -= 1;
+        if (hp > 3500 && dmg < 150) score -= 2;
+        if (dmg >= 1000 && hp > 0 && hp < 400) score -= 2;
+        // Never award 99 without ≥68/70
+        if (sumG < 68) score = Math.min(98, score);
+        if (sumG < 67) score = Math.min(97, score);
+        score = Math.max(30, Math.min(99, Math.round(score)));
 
         if (score >= 93) {
           tier = "S-Tier · Broken"; tierClass = "tier-s";
           report = pick([
-            "Supercell just entered the chat. This would get emergency-nerfed within 48 hours of release.",
-            "Every mid-ladder player is already theory-crafting decks around this abomination.",
-            "Balance team status: crying in the server room. This card breaks three archetypes at once.",
-            "If this shipped tomorrow, Ultimate Champion would become a single-deck ladder overnight."
+            "This is the kind of card that makes balance teams retire early. Almost every grade is stacked.",
+            "If this hit the shop tomorrow, ladder would be one deck until the emergency patch.",
+            "You basically drafted a cheat code. Expect imaginary nerfs in your dreams.",
+            "Top-end stats with almost no weak spots — this would warp the whole meta around it."
           ]);
           flavor = pick([
-            '"I refuse to balance this." — imaginary balance team',
-            'Your clan chat: "HOW is that fair."',
-            "Arena 20 has filed a formal complaint.",
-            "RoyaleAPI would need a new S+ tier just for this.",
-            "Even Evo Mortar players are sweating.",
-            "Path of Legends mods are writing the patch notes already."
+            'Clan chat energy: "bro what is that card."',
+            "Your opponents would check the level cap twice.",
+            "Screenshot this before Supercell imaginary-nerfs it.",
+            "Even Evo bait players would side-eye this.",
+            "Broken in a funny way. Also broken in a real way.",
+            "Path of Legends would not be ready for this."
           ]);
         } else if (score >= 85) {
           tier = "A-Tier · Meta"; tierClass = "tier-a";
           report = pick([
-            "Top-ladder viable. Strong grades with few holes — Grand Challenge material.",
-            "Would sit comfortably in the UC meta next to Mortar Bait and Hog Cycle.",
-            "Pro players would lab this for weeks before the first nerf discussion.",
-            "A real contender for weekly top decks if Supercell ever green-lit the Frankenstein slot."
+            "Strong enough for real ladder climbs. A couple of top grades carry the card into serious play.",
+            "This belongs next to actual meta win conditions — few holes, clear role.",
+            "Grand Challenge vibes. You would actually main this for a week.",
+            "High floor, high ceiling. Only dedicated counters keep it honest."
           ]);
           flavor = pick([
-            "Pro players are already bookmarking this screenshot.",
-            "Would dominate until the next balance patch.",
-            "Your clan mate just asked for the deck code. There isn't one. Yet.",
-            "Solid enough that mid-ladder would still somehow misplay it.",
-            "Streamer title: 'NEW META CARD???'",
-            "Looks like something a UC grinder would force for a week."
+            "Someone in your clan just asked for the deck link. There is no deck link.",
+            'Streamer title energy: is this the new meta???',
+            "Strong enough that losing with it would be a skill issue.",
+            "Looks like a card people force in Ultimate Champion for a season.",
+            "Not illegal. Just mildly unfair.",
+            "Bookmark-worthy. Nerf-discussion-worthy."
           ]);
         } else if (score >= 75) {
           tier = "B-Tier · Solid"; tierClass = "tier-b";
           report = pick([
-            "Respectable all-rounder. Wins mirrors more often than not, loses to dedicated counters.",
-            "Ladder-friendly. Not broken, not trash — the kind of card that ages well across seasons.",
-            "Would see play in niche UC decks and a lot of mid-ladder experimentation.",
-            "Good enough for Path of Legends climbs if the rest of the deck is tight."
+            "Honestly decent. Wins fair fights, loses to hard counters — a normal good card.",
+            "Playable on ladder without coping. Nothing broken, nothing embarrassing.",
+            "Would show up in real decks as a flexible support or secondary threat.",
+            "Solid grades overall. Not a highlight reel, but it does its job every game."
           ]);
           flavor = pick([
-            "Not flashy. Just quietly effective.",
-            "Your opponents will respect it after the first connect.",
-            "The kind of card you forget is strong until it three-crowns you.",
-            "Clan war friendly. Nobody bans this… until they should.",
-            "Would have a dedicated emoji in clan chat within a week.",
-            "Balanced. Suspiciously balanced."
+            "Quietly good. The kind of card people underrate until it three-crowns them.",
+            "Clan war safe. Nobody bans it… until they should.",
+            "Balanced in a way that feels suspicious.",
+            "Not flashy. Still works.",
+            "Your opponents will respect it after one clean connect.",
+            "The mid-ladder special: strong if you aim it correctly."
           ]);
         } else if (score >= 62) {
           tier = "C-Tier · Playable"; tierClass = "tier-c";
           report = pick([
-            "Has a job, just not a glamorous one. Fills a role when the rest of the deck carries.",
-            "Situational. Strong in the right matchup, invisible in the wrong one.",
-            "Mid-ladder hero, top-ladder afterthought — classic story.",
-            "Would live in people's collection as a 'maybe someday' level-up."
+            "It has a role — just not a starring one. Fine when the rest of the deck carries.",
+            "Situational. Great in the right matchup, forgettable in the wrong one.",
+            "Mid-ladder hero, top-ladder benchwarmer. Classic career path.",
+            "Playable, not priority. You would level this after your real win conditions."
           ]);
           flavor = pick([
-            "It's fine. It's fine. Stop staring at the grades.",
-            "Somewhere a mid-ladder player is about to overlevel this.",
-            "Not every card needs to be Evo Mortar.",
-            "Would get one emote interaction: the cry laugh.",
-            "Playable. That is the review.",
-            "Might shine in one niche archetype and nowhere else."
+            "It's fine. Stop refreshing the grades hoping they improve.",
+            "Somewhere a mid-ladder player is about to overlevel this with pride.",
+            "Not every card needs to be broken. This one got the memo.",
+            "One cry-laugh emote and move on.",
+            "Playable. That is both the review and the compliment.",
+            "Niche pick. Works in one archetype and ghosts everywhere else."
           ]);
         } else if (score >= 48) {
           tier = "D-Tier · Rough"; tierClass = "tier-d";
           report = pick([
-            "Stats don't line up. Elixir feels wrong. The arena notices.",
-            "Would need a rework before anyone drafted it on purpose.",
-            "More meme than meta. Fun once. Painful twice.",
-            "Countered by basically every cycle deck in UC."
+            "The stats do not agree with each other. Elixir and power feel off.",
+            "Needs a rework before anyone queues this on purpose.",
+            "Funny once. Painful the second time you try to defend with it.",
+            "Most cycle decks would farm this for free."
           ]);
           flavor = pick([
-            "The wheel was not kind today.",
-            "Even Skeleton Army is looking at this sideways.",
-            "Delete. Redraft. Touch grass. In that order.",
-            "This is why we have the Draft Again button.",
-            "Your card has a participation trophy energy.",
-            "RoyaleAPI usage: 0.0%. Win rate: emotional damage."
+            "The wheel took personal damage today.",
+            "Even Skeleton Army is judging you.",
+            "Draft Again exists for moments like this.",
+            "Participation-trophy energy.",
+            "Usage rate: microscopic. Dignity rate: also microscopic.",
+            "Delete, redraft, drink water."
           ]);
         } else {
           tier = "F-Tier · Arena 1 Reject"; tierClass = "tier-d";
           report = pick([
-            "Please do not show this to Supercell. Or your clan. Or anyone.",
-            "The Frankenstein experiment failed. The villagers are outside with torches.",
-            "This card loses to a lone Knight. At equal level. On a bridge.",
-            "Even Mirror would refuse to copy this."
+            "Do not show this to your clan. Or your enemies. Or a mirror.",
+            "The Frankenstein experiment escaped and immediately lost a bridge fight.",
+            "Loses to a lone Knight at equal level. On a bridge. With a head start.",
+            "Mirror would decline the copy request."
           ]);
           flavor = pick([
-            "F in the chat.",
-            "The loading screen lasted longer than this card's career.",
-            "Built by UltimatePEKKA… on a cursed day.",
-            "Report: unplayable. Recommendation: try again.",
-            "This is not a card. This is a warning.",
-            "Somewhere Hog Rider is laughing."
+            "F in the chat. And in the grades.",
+            "The loading screen had a longer career.",
+            "Unplayable. That is the useful part of this review.",
+            "This is less a card and more a cautionary tale.",
+            "Hog Rider is laughing somewhere.",
+            "Try again. The wheel believes in second chances."
           ]);
         }
 
-        if (minG <= 2) report += " That " + minG + "/10 sinkhole is doing real damage.";
-        if (el <= 2 && score >= 70) report += " Absurd elixir value.";
-        if (hp >= 4000) report += " Tank status achieved.";
-        if (dmg >= 1200) report += " One-shot energy is real.";
+        if (minG <= 2) report += " Your " + minG + "/10 stat is dragging the whole card down hard.";
+        if (el <= 2 && score >= 70) report += " Absurdly cheap for how strong it is.";
+        if (hp >= 4000) report += " Basically a walking building.";
+        if (dmg >= 1200) report += " One-shot energy is very real.";
 
         var ps = document.getElementById("powerScore");
         if (ps) ps.textContent = score;
@@ -3370,7 +3648,7 @@
         try {
           var youRank = renderMetaTable(score, "score");
           if (youRank && ar) {
-            ar.textContent += " Ranked #" + youRank + " on the UC meta board vs real cards.";
+            ar.textContent += " Ranked #" + youRank + " against other cards in Ultimate Champion.";
           }
         } catch (metaErr) {
           console.warn("meta table", metaErr);
@@ -3526,6 +3804,7 @@
     }
     function mpStartPresence() {
       mpStopPresence();
+      mp._lastHeard = Date.now();
       // Re-announce so a late-joining peer always discovers the room
       mp.presenceTimer = setInterval(function() {
         if (!mp.client || !mp.client.connected || !mp.topic) return;
@@ -3536,6 +3815,13 @@
         }
         if (mp.role === "host") {
           mpSend({ t: "settings", settings: mp.settings });
+        }
+        // Ranked: if opponent silent too long during active race → disconnect win
+        if (mp.ranked && mp.active && !mp.resultShown && mp.oppConnected) {
+          var silent = Date.now() - (mp._lastHeard || Date.now());
+          if (silent > 12000) {
+            try { rankedOnOpponentDisconnect("Disconnected"); } catch (eDisc) {}
+          }
         }
       }, 2500);
     }
@@ -3602,6 +3888,7 @@
     }
     function mpOnMessage(data) {
       if (!data || !data.t || (data.from && data.from === mp.clientId)) return;
+      mp._lastHeard = Date.now();
       if (data.t === "hello" || data.t === "here" || data.t === "ping") {
         var was = mp.oppConnected;
         mp.oppConnected = true;
@@ -3642,9 +3929,32 @@
           if (stWait) stWait.textContent = "Opponent finished (" + (mp.oppScore != null ? mp.oppScore : "—") + "). Keep drafting…";
         }
       } else if (data.t === "rematch") {
+        // Ranked matches never rematch in-lobby — force requeue
+        if (mp.ranked) return;
         mp.ready = false; mp.oppReady = false; mp.myDone = false; mp.oppDone = false;
         mp.resultShown = false; mp.active = false;
         showScreen("screen-mp-lobby"); mpUpdateLobby();
+      } else if (data.t === "timeout-win") {
+        // Opponent claims win because we timed out / unfinished
+        if (!mp.myDone) {
+          mp.myDone = true;
+          mp.myScore = -1;
+          mp.myLabel = "Timeout / unfinished";
+        }
+        mp.oppDone = true;
+        mp.oppScore = data.score != null ? data.score : mp.oppScore;
+        mp.oppLabel = data.label || "Opponent";
+        mpRevealResults();
+      } else if (data.t === "timeout-draw") {
+        mp.myDone = true;
+        mp.oppDone = true;
+        if (mp.myScore == null) mp.myScore = -1;
+        if (mp.oppScore == null) mp.oppScore = -1;
+        mp.myLabel = mp.myLabel || "Timeout";
+        mp.oppLabel = mp.oppLabel || "Timeout";
+        mpRevealResults();
+      } else if (data.t === "forfeit" || data.t === "disconnect") {
+        try { rankedOnOpponentDisconnect(data.reason || "Disconnected"); } catch (eF) {}
       }
     }
     function mpSetConnText(txt) {
@@ -3756,6 +4066,18 @@
             try { client.removeAllListeners(); } catch (e5) {}
             mp.brokerIndex++;
             tryNextBroker();
+          } else if (connectedOnce && mp.ranked && mp.active && !mp.resultShown) {
+            // Lost connection mid ranked race — treat as local disconnect loss only if we never finished
+            // Peer will also notice silence and take the win via rankedOnOpponentDisconnect
+            try {
+              if (!mp.myDone) {
+                mp.myDone = true;
+                mp.myScore = -1;
+                mp.myLabel = "Disconnected";
+              }
+              // Do not auto-reveal without opp score unless already oppDone
+              if (mp.oppDone) mpRevealResults();
+            } catch (eClose) {}
           }
         });
       }
@@ -3843,55 +4165,107 @@
       if (mp.resultShown || !mp.myDone || !mp.oppDone) return;
       mp.resultShown = true; mp.active = false;
       if (rankedTimerId) { clearInterval(rankedTimerId); rankedTimerId = null; }
-      var ys = Number(mp.myScore) || 0, os = Number(mp.oppScore) || 0;
+      var ys = Number(mp.myScore);
+      var os = Number(mp.oppScore);
+      if (isNaN(ys)) ys = 0;
+      if (isNaN(os)) os = 0;
       var title = document.getElementById("mpResultTitle");
       var msg = document.getElementById("mpResultMsg");
       var diffEl = document.getElementById("mpResDiff");
-      document.getElementById("mpResYouScore").textContent = ys;
-      document.getElementById("mpResOppScore").textContent = os;
+      var youScoreTxt = ys < 0 ? "DNF" : String(ys);
+      var oppScoreTxt = os < 0 ? "DNF" : String(os);
+      document.getElementById("mpResYouScore").textContent = youScoreTxt;
+      document.getElementById("mpResOppScore").textContent = oppScoreTxt;
       document.getElementById("mpResYouLabel").textContent = mp.myLabel || "Your card";
       document.getElementById("mpResOppLabel").textContent = mp.oppLabel || "Opponent card";
+      // Outcome: positive scores compare normally; DNF (-1) loses to any finished score; both DNF = draw
+      var outcome;
+      if (ys < 0 && os < 0) outcome = 0.5;
+      else if (ys < 0) outcome = 0;
+      else if (os < 0) outcome = 1;
+      else if (ys > os) outcome = 1;
+      else if (os > ys) outcome = 0;
+      else outcome = 0.5;
       if (title) {
         title.classList.remove("win", "lose", "draw");
-        if (ys > os) { title.textContent = "VICTORY"; title.classList.add("win"); }
-        else if (os > ys) { title.textContent = "DEFEAT"; title.classList.add("lose"); }
+        if (outcome === 1) { title.textContent = "VICTORY"; title.classList.add("win"); }
+        else if (outcome === 0) { title.textContent = "DEFEAT"; title.classList.add("lose"); }
         else { title.textContent = "DRAW"; title.classList.add("draw"); }
       }
       var eloLine = "";
       if (mp.ranked && typeof rankedApplyMatchResult === "function") {
-        var outcome = ys > os ? 1 : ys < os ? 0 : 0.5;
-        var eloRes = rankedApplyMatchResult(outcome, mp.oppElo || 1000, mp.oppName || "Opponent");
+        var eloRes = rankedApplyMatchResult(outcome, mp.oppElo != null ? mp.oppElo : 0, mp.oppName || "Opponent");
         if (eloRes) {
           if (outcome === 1) eloLine = "Ranked: +" + eloRes.delta + " trophies → " + eloRes.elo;
           else if (outcome === 0) eloLine = "Ranked: " + eloRes.delta + " trophies → " + eloRes.elo;
           else eloLine = "Ranked draw: " + (eloRes.delta >= 0 ? "+" : "") + eloRes.delta + " trophies → " + eloRes.elo;
         }
       }
+      var reasonBit = "";
+      if (ys < 0 || os < 0) {
+        if (ys < 0 && os < 0) reasonBit = "Time expired — neither finished (draw).";
+        else if (os < 0 && (String(mp.oppLabel || "").toLowerCase().indexOf("disconnect") >= 0))
+          reasonBit = "Opponent disconnected — you win.";
+        else if (os < 0) reasonBit = "Opponent did not finish in time — you win.";
+        else if (ys < 0) reasonBit = "You did not finish in time.";
+      }
       if (msg) {
-        msg.textContent = ys > os
-          ? "Higher power rating wins the race."
-          : os > ys
-            ? "Opponent edged you on power rating."
-            : "Equal power — rare stalemate.";
+        if (reasonBit) msg.textContent = reasonBit;
+        else if (outcome === 1) msg.textContent = "Higher power rating wins the race.";
+        else if (outcome === 0) msg.textContent = "Opponent edged you on power rating.";
+        else msg.textContent = "Equal power — rare stalemate.";
         if (eloLine) msg.textContent += " · " + eloLine;
       }
       if (diffEl) {
-        var d = ys - os;
-        if (d > 0) diffEl.textContent = "You won by +" + d + " power" + (eloLine ? " · " + eloLine : "");
-        else if (d < 0) diffEl.textContent = "Lost by " + Math.abs(d) + " power" + (eloLine ? " · " + eloLine : "");
-        else diffEl.textContent = "Exact same rating" + (eloLine ? " · " + eloLine : "");
+        if (ys < 0 && os < 0) diffEl.textContent = "Draw by timeout" + (eloLine ? " · " + eloLine : "");
+        else if (os < 0) diffEl.textContent = "Win by forfeit / timeout" + (eloLine ? " · " + eloLine : "");
+        else if (ys < 0) diffEl.textContent = "Loss by timeout" + (eloLine ? " · " + eloLine : "");
+        else {
+          var d = ys - os;
+          if (d > 0) diffEl.textContent = "You won by +" + d + " power" + (eloLine ? " · " + eloLine : "");
+          else if (d < 0) diffEl.textContent = "Lost by " + Math.abs(d) + " power" + (eloLine ? " · " + eloLine : "");
+          else diffEl.textContent = "Exact same rating" + (eloLine ? " · " + eloLine : "");
+        }
       }
+      // Ranked: no casual rematch — must requeue
+      var rematchBtn = document.getElementById("btnMpRematch");
+      var queueBtn = document.getElementById("btnMpQueueAgain");
+      if (mp.ranked) {
+        if (rematchBtn) rematchBtn.style.display = "none";
+        if (queueBtn) { queueBtn.style.display = ""; queueBtn.textContent = "Find Ranked Match"; }
+      } else {
+        if (rematchBtn) rematchBtn.style.display = "";
+        if (queueBtn) { queueBtn.style.display = "none"; }
+      }
+      rankedClearLock();
       showScreen("screen-result");
       setTimeout(function() { showScreen("screen-mp-result"); }, 900);
     }
 
     /* ==================== RANKED / TROPHY ROAD ==================== */
     var RANKED_PROFILE_KEY = "bac-ranked-profile-v1";
-    var RANKED_USERS_TOPIC = "buildacard/v3/ranked/users";
+    var RANKED_USERS_TOPIC = "buildacard/v4/ranked/users";
     var RANKED_QUEUE_TOPIC = "buildacard/v3/ranked/queue";
     var RANKED_MATCH_TOPIC = "buildacard/v3/ranked/match";
     var RANKED_START_ELO = 0; // trophies start at 0 (Arena 1)
     var RANKED_K = 30; // ~±15 for equal opponents
+    // Season reset: wipe trophies to 0 once per client (v2 season)
+    try {
+      if (localStorage.getItem("bac-ranked-season") !== "v2-zero") {
+        var _rp = localStorage.getItem(RANKED_PROFILE_KEY);
+        if (_rp) {
+          var _pj = JSON.parse(_rp);
+          if (_pj && _pj.username) {
+            _pj.elo = 0;
+            _pj.wins = 0;
+            _pj.losses = 0;
+            _pj.updated = Date.now();
+            localStorage.setItem(RANKED_PROFILE_KEY, JSON.stringify(_pj));
+          }
+        }
+        localStorage.setItem("bac-ranked-season", "v2-zero");
+      }
+    } catch (seasonErr) {}
 
     // Full road from Arena 1. arenaImg matches RoyaleAPI arenaN.png (arena1 = Goblin Stadium)
     var RANKED_ARENAS = [
@@ -4409,7 +4783,13 @@
       if (rankedTimerId) { clearInterval(rankedTimerId); rankedTimerId = null; }
       try {
         if (mp.client) {
-          try { mpSend({ t: "unready" }); } catch (e0) {}
+          try {
+            if (mp.ranked && mp.active && !mp.resultShown) {
+              mpSend({ t: "disconnect", reason: "Left match" });
+            } else {
+              mpSend({ t: "unready" });
+            }
+          } catch (e0) {}
           mp.client.removeAllListeners();
           mp.client.end(true);
         }
@@ -4557,6 +4937,13 @@
       });
       mpBind("btnMpViewCard", function() { showScreen("screen-result"); });
       mpBind("btnMpRematch", function() {
+        if (mp.ranked) {
+          // Ranked: no instant rematch — return to ranked home to requeue
+          mpLeave();
+          rankedClearLock();
+          rankedShowScreen();
+          return;
+        }
         mp.ready = false; mp.oppReady = false; mp.myDone = false; mp.oppDone = false; mp.resultShown = false;
         mpSend({ t: "rematch" }); showScreen("screen-mp-lobby"); mpUpdateLobby();
       });
@@ -4564,6 +4951,8 @@
       document.getElementById("btnDraftAgain").addEventListener("click", startGame);
       document.getElementById("btnHome").addEventListener("click", showHome);
       document.getElementById("spinBtn").addEventListener("click", spinWheel);
+      var rerollBtnEl = document.getElementById("rerollBtn");
+      if (rerollBtnEl) rerollBtnEl.addEventListener("click", function() { try { rerollWheel(); } catch (e) { console.error(e); } });
 
       var sortBtns = document.querySelectorAll(".sort-btn[data-sort]");
       for (var si = 0; si < sortBtns.length; si++) {
