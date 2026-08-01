@@ -801,17 +801,24 @@
     <section id="screen-ranked" class="screen">
       <div class="home-card" style="max-width:480px">
         <div class="ranked-header">
-          <div class="ranked-elo" id="rankedEloDisplay">1000<span>ELO</span></div>
+          <div class="ranked-elo" id="rankedEloDisplay">1000<span>Trophies</span></div>
           <div class="ranked-arena-name" id="rankedArenaName">Hog Mountain</div>
           <div class="ranked-user" id="rankedUserLine">Not signed in</div>
         </div>
         <div id="rankedAuthBox" class="ranked-auth">
           <input type="text" id="rankedUsernameInput" maxlength="16" placeholder="Choose a unique username" autocomplete="off" />
           <button class="btn btn-primary" id="btnRankedClaim" type="button">Create Ranked Account</button>
-          <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.45">Starts at <strong style="color:var(--gold)">1000 ELO</strong> · Arena 10 · username is permanent on this device’s ranked profile</p>
+          <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.45">Starts at <strong style="color:var(--gold)">1000 trophies</strong> · Arena 10 · ability grades stay hidden in ranked</p>
         </div>
         <div id="rankedPlayBox" class="hidden">
           <div class="trophy-road" id="trophyRoad"></div>
+          <h3 style="color:var(--gold);font-size:14px;margin:12px 0 6px;position:relative;z-index:1">Ranked Leaderboard</h3>
+          <div class="lb-table-wrap" style="max-height:180px;margin-bottom:10px;position:relative;z-index:1">
+            <table class="lb-table" id="rankedLbTable">
+              <thead><tr><th>#</th><th>Player</th><th>Trophies</th><th>W–L</th></tr></thead>
+              <tbody id="rankedLbBody"><tr><td colspan="4">Loading…</td></tr></tbody>
+            </table>
+          </div>
           <div class="ranked-status" id="rankedQueueStatus"></div>
           <div class="home-actions" style="flex-direction:column;max-width:280px;margin:0 auto">
             <button class="btn btn-primary" id="btnRankedQueue" type="button">Find Ranked Match</button>
@@ -3693,9 +3700,9 @@
         var outcome = ys > os ? 1 : ys < os ? 0 : 0.5;
         var eloRes = rankedApplyMatchResult(outcome, mp.oppElo || 1000, mp.oppName || "Opponent");
         if (eloRes) {
-          if (outcome === 1) eloLine = "Ranked: +" + eloRes.delta + " ELO → " + eloRes.elo;
-          else if (outcome === 0) eloLine = "Ranked: " + eloRes.delta + " ELO → " + eloRes.elo;
-          else eloLine = "Ranked draw: " + (eloRes.delta >= 0 ? "+" : "") + eloRes.delta + " ELO → " + eloRes.elo;
+          if (outcome === 1) eloLine = "Ranked: +" + eloRes.delta + " trophies → " + eloRes.elo;
+          else if (outcome === 0) eloLine = "Ranked: " + eloRes.delta + " trophies → " + eloRes.elo;
+          else eloLine = "Ranked draw: " + (eloRes.delta >= 0 ? "+" : "") + eloRes.delta + " trophies → " + eloRes.elo;
         }
       }
       if (msg) {
@@ -3724,6 +3731,7 @@
     var RANKED_START_ELO = 1000;
     var RANKED_K = 30; // ~±15 for equal opponents
 
+    // arenaImg = RoyaleAPI file index (arena0 = Training, arena1 = Goblin Stadium, … arena10 = Hog Mountain)
     var RANKED_ARENAS = [
       { id: 10, name: "Hog Mountain", min: 1000, arenaImg: 10 },
       { id: 11, name: "Electro Valley", min: 1100, arenaImg: 11 },
@@ -3741,6 +3749,21 @@
       { id: 23, name: "Valkalla", min: 2300, arenaImg: 23 },
       { id: 24, name: "Legendary Arena", min: 2400, arenaImg: 24 }
     ];
+
+    function rankedArenaImgUrl(imgId) {
+      var n = Number(imgId) || 10;
+      // Prefer RoyaleAPI numbering: arenaN.png matches Arena N for 1–20+
+      var bases = [
+        "https://raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/arenas/arena" + n + ".png",
+        "https://royaleapi.github.io/cr-api-assets/arenas/arena" + n + ".png"
+      ];
+      // Fallbacks if a high arena asset is missing
+      if (n > 20) {
+        bases.push("https://raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/arenas/arena20.png");
+        bases.push("https://raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/arenas/arena16.png");
+      }
+      return bases;
+    }
 
     var ranked = {
       profile: null,
@@ -3848,6 +3871,12 @@
             if (!data) return;
             if (topic === RANKED_USERS_TOPIC && data.t === "users" && data.users) {
               ranked.users = Object.assign({}, ranked.users, data.users);
+              try {
+                if (document.getElementById("screen-ranked") &&
+                    document.getElementById("screen-ranked").classList.contains("active")) {
+                  rankedRenderLeaderboard();
+                }
+              } catch (rb) {}
             }
             if (topic === RANKED_QUEUE_TOPIC && data.t === "queue") {
               rankedOnQueueMessage(data);
@@ -3904,7 +3933,7 @@
         rankedSaveProfile(p);
         rankedPublishUser(p);
         rankedRenderUI();
-        if (status) { status.textContent = "Welcome to Hog Mountain, " + raw + "!"; status.className = "ranked-status hot"; }
+        if (status) { status.textContent = "Welcome to Hog Mountain, " + raw + "! · 1000 trophies"; status.className = "ranked-status hot"; }
       });
     }
 
@@ -3922,12 +3951,14 @@
         else if (elo >= a.min) cls += " cleared";
         else cls += " locked";
         var nextMin = RANKED_ARENAS[i + 1] ? RANKED_ARENAS[i + 1].min - 1 : a.min + 99;
-        var img = "https://raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/arenas/arena" + a.arenaImg + ".png";
+        var imgs = rankedArenaImgUrl(a.arenaImg);
+        var img = imgs[0];
+        var fallbacks = imgs.slice(1).join("|");
         var badge = a.id === cur.id ? "YOU" : (elo >= a.min ? "CLEARED" : a.min + "+");
         html += '<div class="' + cls + '">' +
-          '<img src="' + img + '" alt="" referrerpolicy="no-referrer" onerror="this.style.opacity=0.3" />' +
+          '<img src="' + img + '" alt="Arena ' + a.id + " " + a.name + '" referrerpolicy="no-referrer" data-fallbacks="' + fallbacks + '" onerror="var f=(this.getAttribute(\'data-fallbacks\')||\'\').split(\'|\').filter(Boolean);if(f.length){this.setAttribute(\'data-fallbacks\',f.slice(1).join(\'|\'));this.src=f[0];}else{this.style.opacity=0.25;}" />' +
           '<div class="tn-info"><div class="tn-name">Arena ' + a.id + " · " + a.name + "</div>" +
-          '<div class="tn-range">' + a.min + " – " + nextMin + " ELO</div></div>" +
+          '<div class="tn-range">' + a.min + " – " + nextMin + " trophies</div></div>" +
           '<div class="tn-badge">' + badge + "</div></div>";
       }
       road.innerHTML = html;
@@ -3952,18 +3983,67 @@
         if (play) play.classList.remove("hidden");
         if (backOnly) backOnly.classList.add("hidden");
         var arena = rankedArenaForElo(p.elo);
-        if (eloEl) eloEl.innerHTML = p.elo + "<span>ELO</span>";
+        if (eloEl) eloEl.innerHTML = p.elo + "<span>Trophies</span>";
         if (arenaEl) arenaEl.textContent = "Arena " + arena.id + " · " + arena.name;
         if (userEl) userEl.textContent = p.username + " · " + (p.wins || 0) + "W – " + (p.losses || 0) + "L";
         rankedRenderTrophyRoad();
+        rankedRenderLeaderboard();
       } else {
         if (auth) auth.classList.remove("hidden");
         if (play) play.classList.add("hidden");
         if (backOnly) backOnly.classList.remove("hidden");
-        if (eloEl) eloEl.innerHTML = "1000<span>ELO</span>";
+        if (eloEl) eloEl.innerHTML = "1000<span>Trophies</span>";
         if (arenaEl) arenaEl.textContent = "Hog Mountain";
         if (userEl) userEl.textContent = "Not signed in";
       }
+    }
+
+    function rankedRenderLeaderboard() {
+      var body = document.getElementById("rankedLbBody");
+      if (!body) return;
+      var list = [];
+      var seen = {};
+      Object.keys(ranked.users || {}).forEach(function(k) {
+        var u = ranked.users[k];
+        if (!u || !u.username) return;
+        var key = String(u.username).toLowerCase();
+        if (seen[key]) return;
+        seen[key] = true;
+        list.push({
+          username: u.username,
+          elo: Number(u.elo) || 0,
+          wins: Number(u.wins) || 0,
+          losses: Number(u.losses) || 0
+        });
+      });
+      // Always include local profile
+      var p = ranked.profile || rankedLoadProfile();
+      if (p && p.username) {
+        var lk = p.username.toLowerCase();
+        if (!seen[lk]) {
+          list.push({ username: p.username, elo: p.elo, wins: p.wins || 0, losses: p.losses || 0 });
+        } else {
+          list.forEach(function(row) {
+            if (row.username.toLowerCase() === lk) {
+              row.elo = p.elo; row.wins = p.wins || 0; row.losses = p.losses || 0;
+            }
+          });
+        }
+      }
+      list.sort(function(a, b) { return b.elo - a.elo || b.wins - a.wins; });
+      list = list.slice(0, 25);
+      if (!list.length) {
+        body.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">No ranked players yet — be the first</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(function(row, i) {
+        var mine = p && row.username.toLowerCase() === p.username.toLowerCase();
+        return '<tr' + (mine ? ' style="background:rgba(245,197,66,0.08)"' : '') + '>' +
+          '<td>' + (i + 1) + '</td>' +
+          '<td>' + row.username.replace(/</g, "&lt;") + (mine ? " · you" : "") + '</td>' +
+          '<td>' + row.elo + '</td>' +
+          '<td>' + row.wins + "–" + row.losses + '</td></tr>';
+      }).join("");
     }
 
     function rankedShowScreen() {
@@ -4021,9 +4101,27 @@
       }
     }
 
+    function rankedAutoReadyTick() {
+      if (!mp.ranked || mp.active || mp.resultShown) return;
+      // Ranked rule: ability grades always off
+      mp.settings = { images: mp.settings && typeof mp.settings.images === "boolean" ? mp.settings.images : true, grades: false };
+      try { mpApplySettings(mp.settings, false); } catch (e0) {}
+      if (mp.role === "host") {
+        try { mpSend({ t: "settings", settings: mp.settings }); } catch (e1) {}
+      }
+      if (mp.oppConnected && !mp.ready) {
+        mp.ready = true;
+        try { mpSend({ t: "ready" }); } catch (e2) {}
+      }
+      try { mpUpdateLobby(); } catch (e3) {}
+      try { mpTryStart(); } catch (e4) {}
+      if (!mp.active) setTimeout(rankedAutoReadyTick, 500);
+    }
+
     function rankedStartMatch(code, asHost, oppName, oppElo) {
       ranked.queueing = false;
-      rankedSetQueueStatus("Match found vs " + oppName + " (" + oppElo + " ELO)!", true);
+      if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
+      rankedSetQueueStatus("Match found vs " + oppName + " (" + oppElo + " trophies)!", true);
       var btnQ = document.getElementById("btnRankedQueue");
       var btnC = document.getElementById("btnRankedCancelQueue");
       if (btnQ) btnQ.style.display = "";
@@ -4041,15 +4139,20 @@
       mp.myDone = false;
       mp.oppDone = false;
       mp.resultShown = false;
+      // Grades off for the whole ranked match
+      mp.settings = { images: true, grades: false };
+      try { mpApplySettings(mp.settings, false); } catch (eS) {}
       mpConnectBroker();
-      // Auto-ready after short delay once connected
       setTimeout(function() {
         showScreen("screen-mp-lobby");
         mpUpdateLobby();
         rankedSetQueueStatus("");
         var st = document.getElementById("mpConnText");
-        if (st) st.textContent = "Ranked vs " + oppName;
-      }, 800);
+        if (st) st.textContent = "Ranked vs " + oppName + " · grades off · auto-ready";
+        var hint = document.getElementById("mpLobbyHint");
+        if (hint) hint.textContent = "Ranked match — ability grades hidden. Auto-ready…";
+        rankedAutoReadyTick();
+      }, 600);
     }
 
     function rankedJoinQueue() {
