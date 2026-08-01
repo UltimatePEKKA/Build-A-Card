@@ -3908,7 +3908,7 @@
         mp.oppReady = false;
         mpUpdateLobby();
       } else if (data.t === "start") {
-        if (!mp.active) mpBeginRace();
+        if (!mp.active && !mp.resultShown && !ranked.matchLock) mpBeginRace();
       } else if (data.t === "settings") {
         if (mp.role !== "host" && data.settings) {
           mpApplySettings(data.settings, true);
@@ -4153,7 +4153,8 @@
       }
     }
     function mpBeginRace() {
-      if (mp.active) return;
+      if (mp.active || mp.resultShown) return;
+      if (ranked && ranked.matchLock) return;
       // Ranked: show matchup loading screen first (names, trophies, arenas)
       if (mp.ranked && !mp._matchupShown) {
         mp._matchupShown = true;
@@ -4247,19 +4248,34 @@
           else diffEl.textContent = "Exact same rating" + (eloLine ? " · " + eloLine : "");
         }
       }
-      // Stop any ranked matchmaking so a new match cannot auto-start
+      // HARD STOP ranked matchmaking — stay on end screen until user chooses
       try {
         ranked.queueing = false;
+        ranked._matching = false;
+        ranked.matchLock = true; // blocks all queue/match invites until Play Again
+        ranked._queuePeers = {};
         if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
+        if (ranked._autoReadyTimer) { clearInterval(ranked._autoReadyTimer); ranked._autoReadyTimer = null; }
       } catch (eQ) {}
       try { rankedClearLock(); } catch (eL) {}
+      // Drop the live room so late "start"/"ready" packets cannot begin another race
+      try { mpStopPresence(); } catch (eP) {}
+      try {
+        if (mp.client) {
+          mp.client.removeAllListeners();
+          mp.client.end(true);
+        }
+      } catch (eC) {}
+      mp.client = null;
+      mp.connecting = false;
+      mp.topic = null;
+      ranked._bridgeSend = null;
 
       var rematchBtn = document.getElementById("btnMpRematch");
       var queueBtn = document.getElementById("btnMpQueueAgain");
       var homeBtn = document.getElementById("btnMpHome");
       var viewBtn = document.getElementById("btnMpViewCard");
       if (mp.ranked) {
-        // Ranked end screen: Play Again + Menu only (plus optional view card)
         if (rematchBtn) rematchBtn.style.display = "none";
         if (queueBtn) {
           queueBtn.style.display = "";
@@ -4270,7 +4286,7 @@
           homeBtn.textContent = "Menu";
         }
         if (viewBtn) viewBtn.style.display = "";
-        // Stay on the match result screen — do not bounce into another queue
+        // End screen only — never auto-queue
         showScreen("screen-mp-result");
       } else {
         if (rematchBtn) rematchBtn.style.display = "";
@@ -4940,11 +4956,12 @@
     }
 
     function rankedOnQueueMessage(data) {
+      if (ranked.matchLock) return;
       if (!ranked.queueing || !ranked.profile) return;
       if (!data || !data.username) return;
       if (data.username.toLowerCase() === ranked.profile.username.toLowerCase()) return;
       if (ranked._matching) return;
-      if (mp && mp.active) return;
+      if (mp && (mp.active || mp.resultShown)) return;
 
       // Remember recent queue peers
       if (!ranked._queuePeers) ranked._queuePeers = {};
@@ -4963,8 +4980,9 @@
     }
 
     function rankedProposeMatch(oppName, oppElo) {
+      if (ranked.matchLock) return;
       if (!ranked.profile || !ranked.queueing || ranked._matching) return;
-      if (mp && mp.active) return;
+      if (mp && (mp.active || mp.resultShown)) return;
       ranked._matching = true;
       rankedSetQueueStatus("Match found — connecting…", true);
 
@@ -4997,9 +5015,10 @@
     function rankedOnMatchMessage(data) {
       if (!data || data.t !== "match" || !data.code || !data.host) return;
       if (!ranked.profile) return;
+      if (ranked.matchLock) return;
       // Guest path: we must be queueing and named as guest
       if (!ranked.queueing || ranked._matching) return;
-      if (mp && mp.active) return;
+      if (mp && (mp.active || mp.resultShown)) return;
       var me = ranked.profile.username;
       if (!data.guest || data.guest.toLowerCase() !== me.toLowerCase()) return;
       ranked._matching = true;
@@ -5053,6 +5072,7 @@
     }
 
     function rankedStartMatch(code, asHost, oppName, oppElo) {
+      if (ranked.matchLock) return;
       ranked.queueing = false;
       if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
       rankedSetQueueStatus("Match found vs " + oppName + "!", true);
@@ -5147,6 +5167,7 @@
       } catch (eClr) {}
       ranked._matching = false;
       ranked._queuePeers = {};
+      ranked.matchLock = false; // user explicitly queued
       ranked.queueing = true;
       rankedSetQueueStatus("Connecting to matchmaking…", true);
       var btnQ = document.getElementById("btnRankedQueue");
@@ -5344,27 +5365,35 @@
       });
       mpBind("btnMpLeave", mpLeave);
       mpBind("btnMpHome", function() {
-        // Menu: back to ranked menu (or home) — do not auto-queue
-        try { ranked.queueing = false; } catch (e0) {}
+        // Menu: ranked home — stay locked out of matchmaking until Find Match
+        try {
+          ranked.queueing = false;
+          ranked._matching = false;
+          ranked.matchLock = true;
+        } catch (e0) {}
         if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
         var wasRanked = !!mp.ranked || !!(ranked && ranked.profile);
-        mpLeave();
+        try { mpLeave(); } catch (eL) {}
         rankedClearLock();
         if (wasRanked && typeof rankedShowScreen === "function") rankedShowScreen();
         else showHome();
       });
       mpBind("btnMpQueueAgain", function() {
-        // Play Again: leave the finished room, open ranked menu, then normal queue (not rematch)
-        var wasRanked = !!mp.ranked;
-        try { ranked.queueing = false; } catch (e0) {}
+        // Play Again: user choice only — unlock matchmaking, then normal queue
+        var wasRanked = !!mp.ranked || !!(ranked && ranked.profile);
+        try {
+          ranked.queueing = false;
+          ranked._matching = false;
+          ranked.matchLock = false;
+        } catch (e0) {}
         if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
-        mpLeave();
+        try { mpLeave(); } catch (eL) {}
         rankedClearLock();
-        if (wasRanked || (ranked && ranked.profile)) {
+        if (wasRanked) {
           rankedShowScreen();
           setTimeout(function() {
-            if (ranked.profile) rankedJoinQueue();
-          }, 500);
+            if (ranked.profile && !ranked.matchLock) rankedJoinQueue();
+          }, 600);
         } else {
           showHome();
         }
