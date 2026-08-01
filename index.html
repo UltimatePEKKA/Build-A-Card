@@ -272,6 +272,37 @@
     .ranked-status.hot { color: var(--gold); font-weight: 600; }
     .elo-delta-win { color: var(--green); font-weight: 700; }
     .elo-delta-lose { color: var(--red); font-weight: 700; }
+    .ranked-banner {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      margin: 0 0 12px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(26,35,64,0.95), rgba(15,22,40,0.98));
+      border: 1px solid rgba(245,197,66,0.35);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      text-align: center;
+    }
+    body.ranked-lock .ranked-banner { display: block; }
+    body.ranked-lock #settingsBtn,
+    body.ranked-lock #settingsPanel { display: none !important; pointer-events: none !important; }
+    body.ranked-lock .mp-host-settings { display: none !important; }
+    .ranked-banner .rb-vs {
+      font-family: 'Press Start 2P', cursive; font-size: 10px; color: var(--gold); margin: 0 8px;
+    }
+    .ranked-banner .rb-row {
+      display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+      font-size: 13px; font-weight: 700;
+    }
+    .ranked-banner .rb-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .ranked-banner .rb-timer {
+      margin-top: 6px; font-size: 14px; font-weight: 800; letter-spacing: 0.5px;
+      color: var(--gold);
+    }
+    .ranked-banner .rb-timer.warn { color: #fbbf24; }
+    .ranked-banner .rb-timer.danger { color: var(--red); animation: pulseDot 1s infinite; }
     .mp-arena {
       width: 120px; height: 120px; margin: 4px auto 14px; position: relative; z-index: 1;
       filter: drop-shadow(0 8px 18px rgba(0,0,0,0.45));
@@ -764,6 +795,15 @@
           <label class="toggle"><input type="checkbox" id="toggleGrades" checked /><span class="slider"></span></label>
         </div>
       </div>
+      <div class="ranked-banner" id="rankedBanner" aria-live="polite">
+        <div class="rb-row">
+          <span id="rbYou">You</span>
+          <span class="rb-vs">VS</span>
+          <span id="rbOpp">Opponent</span>
+        </div>
+        <div class="rb-meta" id="rbMeta">Ranked match · grades hidden</div>
+        <div class="rb-timer" id="rbTimer">3:00</div>
+      </div>
       <div class="logo">BUILD-A-CARD</div>
       <p class="tagline">Spin the wheel · Steal one stat · Create the ultimate Clash Royale card</p>
     </header>
@@ -938,8 +978,7 @@
         <h2>Race finished</h2>
         <div class="mp-status-pill warn" style="margin:14px auto"><span class="dot"></span><span>Waiting on opponent</span></div>
         <p id="mpWaitStatus" style="color:var(--muted);margin-top:12px;line-height:1.55">Opponent still drafting… Your score is locked in.</p>
-        <p style="font-size:12px;color:var(--muted);margin-top:10px">Results appear as soon as they finish. Resending score…</p>
-        <button class="btn btn-secondary" id="btnMpWaitResend" type="button" style="margin-top:14px">Resend my score</button>
+        <p style="font-size:12px;color:var(--muted);margin-top:10px">Results appear as soon as they finish.</p>
       </div>
     </section>
     <section id="screen-mp-result" class="screen">
@@ -960,10 +999,11 @@
           </div>
         </div>
         <div class="mp-diff" id="mpResDiff">—</div>
-        <div class="home-actions" style="margin-top:20px">
-          <button class="btn btn-primary" id="btnMpViewCard" type="button">View My Card</button>
-          <button class="btn btn-secondary" id="btnMpRematch" type="button">Back to Lobby</button>
-          <button class="btn btn-secondary" id="btnMpHome" type="button">Home</button>
+        <div class="home-actions" style="margin-top:20px;flex-direction:column;max-width:280px;margin-left:auto;margin-right:auto">
+          <button class="btn btn-primary" id="btnMpQueueAgain" type="button">Queue Again</button>
+          <button class="btn btn-secondary" id="btnMpViewCard" type="button">View My Card</button>
+          <button class="btn btn-secondary" id="btnMpRematch" type="button">Casual Lobby</button>
+          <button class="btn btn-secondary" id="btnMpHome" type="button">Ranked Home</button>
         </div>
       </div>
     </section>
@@ -1510,7 +1550,10 @@
       for (var i = 0; i < screens.length; i++) screens[i].classList.remove("active");
       document.getElementById(id).classList.add("active");
     }
-    function showHome() { showScreen("screen-home"); }
+    function showHome() {
+      rankedClearLock();
+      showScreen("screen-home");
+    }
 
     function startGame() {
       state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [] };
@@ -1518,6 +1561,78 @@
       renderBuildList();
       resetWheelUI();
       showScreen("screen-game");
+      if (mp && mp.ranked) rankedStartTimer();
+    }
+
+    var rankedTimerId = null;
+    var rankedTimerLeft = 180;
+
+    function rankedClearLock() {
+      document.body.classList.remove("ranked-lock");
+      if (rankedTimerId) { clearInterval(rankedTimerId); rankedTimerId = null; }
+      var panel = document.getElementById("settingsPanel");
+      if (panel) panel.classList.remove("open");
+    }
+
+    function rankedApplyLock() {
+      document.body.classList.add("ranked-lock");
+      var panel = document.getElementById("settingsPanel");
+      if (panel) panel.classList.remove("open");
+      // Force grades off; ignore player setting changes during ranked
+      try {
+        mp.settings = { images: true, grades: false };
+        mpApplySettings(mp.settings, false);
+      } catch (e) {}
+      var ti = document.getElementById("toggleImages");
+      var tg = document.getElementById("toggleGrades");
+      if (ti) ti.disabled = true;
+      if (tg) tg.disabled = true;
+      rankedFillBanner();
+    }
+
+    function rankedFillBanner() {
+      var p = (typeof rankedLoadProfile === "function" ? rankedLoadProfile() : null) || (ranked && ranked.profile);
+      var myName = (p && p.username) || "You";
+      var myElo = p && p.elo != null ? p.elo : 0;
+      var myArena = typeof rankedArenaForElo === "function" ? rankedArenaForElo(myElo) : { id: 1, name: "Goblin Stadium" };
+      var oppName = (mp && mp.oppName) || "Opponent";
+      var oppElo = mp && mp.oppElo != null ? mp.oppElo : 0;
+      var oppArena = typeof rankedArenaForElo === "function" ? rankedArenaForElo(oppElo) : { id: 1, name: "Goblin Stadium" };
+      var y = document.getElementById("rbYou");
+      var o = document.getElementById("rbOpp");
+      var m = document.getElementById("rbMeta");
+      if (y) y.textContent = myName + " · " + myElo;
+      if (o) o.textContent = oppName + " · " + oppElo;
+      if (m) m.textContent = "Arena " + myArena.id + " " + myArena.name + "  vs  Arena " + oppArena.id + " " + oppArena.name + " · grades off";
+    }
+
+    function rankedFormatTime(sec) {
+      var s = Math.max(0, Math.floor(sec));
+      var mm = Math.floor(s / 60);
+      var ss = s % 60;
+      return mm + ":" + (ss < 10 ? "0" : "") + ss;
+    }
+
+    function rankedStartTimer() {
+      if (rankedTimerId) clearInterval(rankedTimerId);
+      rankedTimerLeft = 180;
+      var el = document.getElementById("rbTimer");
+      if (el) {
+        el.textContent = rankedFormatTime(rankedTimerLeft);
+        el.className = "rb-timer";
+      }
+      rankedTimerId = setInterval(function() {
+        rankedTimerLeft -= 1;
+        if (el) {
+          el.textContent = rankedFormatTime(rankedTimerLeft);
+          el.className = "rb-timer" + (rankedTimerLeft <= 30 ? " danger" : rankedTimerLeft <= 60 ? " warn" : "");
+        }
+        if (rankedTimerLeft <= 0) {
+          clearInterval(rankedTimerId);
+          rankedTimerId = null;
+          try { finishBuild(); } catch (e) {}
+        }
+      }, 1000);
     }
 
     function availableCards() {
@@ -3727,6 +3842,7 @@
     function mpRevealResults() {
       if (mp.resultShown || !mp.myDone || !mp.oppDone) return;
       mp.resultShown = true; mp.active = false;
+      if (rankedTimerId) { clearInterval(rankedTimerId); rankedTimerId = null; }
       var ys = Number(mp.myScore) || 0, os = Number(mp.oppScore) || 0;
       var title = document.getElementById("mpResultTitle");
       var msg = document.getElementById("mpResultMsg");
@@ -4054,26 +4170,16 @@
     }
 
     function rankedShowMatchupThenStart() {
-      var p = ranked.profile || rankedLoadProfile();
-      var myName = (p && p.username) || "You";
-      var myElo = (p && p.elo != null) ? p.elo : RANKED_START_ELO;
-      var myArena = rankedArenaForElo(myElo);
-      var oppName = mp.oppName || "Opponent";
-      var oppElo = mp.oppElo != null ? mp.oppElo : RANKED_START_ELO;
-      var oppArena = rankedArenaForElo(oppElo);
       var el = function(id) { return document.getElementById(id); };
-      if (el("muYouName")) el("muYouName").textContent = myName;
-      if (el("muYouTrophies")) el("muYouTrophies").textContent = myElo;
-      if (el("muYouArena")) el("muYouArena").textContent = "Arena " + myArena.id + " · " + myArena.name;
-      if (el("muOppName")) el("muOppName").textContent = oppName;
-      if (el("muOppTrophies")) el("muOppTrophies").textContent = oppElo;
-      if (el("muOppArena")) el("muOppArena").textContent = "Arena " + oppArena.id + " · " + oppArena.name;
       if (el("muStatusText")) el("muStatusText").textContent = "Starting race…";
+      rankedApplyLock();
+      rankedFillBanner();
       showScreen("screen-mp-matchup");
       setTimeout(function() {
         if (el("muStatusText")) el("muStatusText").textContent = "Draft race live!";
+        // Second call to mpBeginRace skips matchup gate
         mpBeginRace();
-      }, 2200);
+      }, 1800);
     }
 
     function rankedRenderLeaderboard() {
@@ -4218,20 +4324,35 @@
       mp.oppDone = false;
       mp.resultShown = false;
       mp._matchupShown = false;
-      // Grades off for the whole ranked match
       mp.settings = { images: true, grades: false };
       try { mpApplySettings(mp.settings, false); } catch (eS) {}
+      rankedApplyLock();
+      // Skip lobby/settings UI — matchup screen only
+      (function fillMu() {
+        var p = ranked.profile || rankedLoadProfile();
+        var myName = (p && p.username) || "You";
+        var myElo = (p && p.elo != null) ? p.elo : RANKED_START_ELO;
+        var myArena = rankedArenaForElo(myElo);
+        var oName = mp.oppName || "Opponent";
+        var oElo = mp.oppElo != null ? mp.oppElo : RANKED_START_ELO;
+        var oArena = rankedArenaForElo(oElo);
+        var el = function(id) { return document.getElementById(id); };
+        if (el("muYouName")) el("muYouName").textContent = myName;
+        if (el("muYouTrophies")) el("muYouTrophies").textContent = myElo;
+        if (el("muYouArena")) el("muYouArena").textContent = "Arena " + myArena.id + " · " + myArena.name;
+        if (el("muOppName")) el("muOppName").textContent = oName;
+        if (el("muOppTrophies")) el("muOppTrophies").textContent = oElo;
+        if (el("muOppArena")) el("muOppArena").textContent = "Arena " + oArena.id + " · " + oArena.name;
+        if (el("muStatusText")) el("muStatusText").textContent = "Connecting…";
+      })();
+      showScreen("screen-mp-matchup");
+      rankedFillBanner();
       mpConnectBroker();
       setTimeout(function() {
-        showScreen("screen-mp-lobby");
-        mpUpdateLobby();
-        rankedSetQueueStatus("");
-        var st = document.getElementById("mpConnText");
-        if (st) st.textContent = "Ranked vs " + oppName + " · grades off · auto-ready";
-        var hint = document.getElementById("mpLobbyHint");
-        if (hint) hint.textContent = "Ranked match — ability grades hidden. Auto-ready…";
+        var st = document.getElementById("muStatusText");
+        if (st) st.textContent = "Auto-ready…";
         rankedAutoReadyTick();
-      }, 600);
+      }, 500);
     }
 
     function rankedJoinQueue() {
@@ -4285,6 +4406,7 @@
     }
     function mpLeave() {
       mpStopPresence();
+      if (rankedTimerId) { clearInterval(rankedTimerId); rankedTimerId = null; }
       try {
         if (mp.client) {
           try { mpSend({ t: "unready" }); } catch (e0) {}
@@ -4294,7 +4416,13 @@
       } catch (e) {}
       mp.client = null;
       mp.active = false;
+      mp.ranked = false;
       mp.code = null;
+      rankedClearLock();
+      var ti = document.getElementById("toggleImages");
+      var tg = document.getElementById("toggleGrades");
+      if (ti) ti.disabled = false;
+      if (tg) tg.disabled = false;
       mp.role = null;
       mp.oppConnected = false;
       mp.ready = false;
@@ -4307,6 +4435,10 @@
 
     document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("settingsBtn").addEventListener("click", function(e) {
+        if (document.body.classList.contains("ranked-lock") || (mp && mp.ranked && !mp.resultShown)) {
+          e.preventDefault();
+          return;
+        }
         e.stopPropagation();
         document.getElementById("settingsPanel").classList.toggle("open");
       });
@@ -4409,15 +4541,21 @@
         else prompt("Code:", c);
       });
       mpBind("btnMpLeave", mpLeave);
-      mpBind("btnMpHome", function() { mpLeave(); showHome(); });
-      mpBind("btnMpViewCard", function() { showScreen("screen-result"); });
-      mpBind("btnMpWaitResend", function() {
-        if (mp.myDone) {
-          mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
-          var st = document.getElementById("mpWaitStatus");
-          if (st) st.textContent = "Score resent (" + mp.myScore + "). Waiting for opponent…";
-        }
+      mpBind("btnMpHome", function() {
+        mpLeave();
+        rankedClearLock();
+        if (typeof rankedShowScreen === "function") rankedShowScreen();
+        else showHome();
       });
+      mpBind("btnMpQueueAgain", function() {
+        mpLeave();
+        rankedClearLock();
+        rankedShowScreen();
+        setTimeout(function() {
+          if (ranked.profile) rankedJoinQueue();
+        }, 400);
+      });
+      mpBind("btnMpViewCard", function() { showScreen("screen-result"); });
       mpBind("btnMpRematch", function() {
         mp.ready = false; mp.oppReady = false; mp.myDone = false; mp.oppDone = false; mp.resultShown = false;
         mpSend({ t: "rematch" }); showScreen("screen-mp-lobby"); mpUpdateLobby();
