@@ -4254,8 +4254,8 @@
     /* ==================== RANKED / TROPHY ROAD ==================== */
     var RANKED_PROFILE_KEY = "bac-ranked-profile-v1";
     var RANKED_USERS_TOPIC = "buildacard/v5/ranked/users";
-    var RANKED_QUEUE_TOPIC = "buildacard/v4/ranked/queue";
-    var RANKED_MATCH_TOPIC = "buildacard/v4/ranked/match";
+    var RANKED_QUEUE_TOPIC = "buildacard/v5/ranked/queue";
+    var RANKED_MATCH_TOPIC = "buildacard/v5/ranked/match";
     var RANKED_START_ELO = 0; // trophies start at 0 (Arena 1)
     var RANKED_K = 30; // ~±15 for equal opponents
     // Season reset: wipe trophies to 0 once per client (v2 season)
@@ -4476,70 +4476,82 @@
         if (cb) cb(null);
         return;
       }
+      if (!ranked._pendingCbs) ranked._pendingCbs = [];
+      if (cb) ranked._pendingCbs.push(cb);
+
+      function flushCbs(client) {
+        var list = ranked._pendingCbs || [];
+        ranked._pendingCbs = [];
+        list.forEach(function(fn) {
+          try { fn(client); } catch (eF) {}
+        });
+      }
+
+      // Already up
       if (ranked.client && ranked.client.connected) {
-        if (cb) cb(ranked.client);
+        flushCbs(ranked.client);
         return;
       }
-      // Tear down a half-dead client so we don't stack connections
-      try {
-        if (ranked.client) {
-          ranked.client.removeAllListeners();
-          ranked.client.end(true);
-        }
-      } catch (eKill) {}
-      ranked.client = null;
+      // Connection already in flight — just wait for it
+      if (ranked._connecting) return;
 
+      ranked._connecting = true;
       var brokers = (typeof MP_BROKERS !== "undefined" && MP_BROKERS.length)
         ? MP_BROKERS.slice()
         : ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
       var bi = 0;
-      var settled = false;
 
-      function failOver() {
-        if (settled) return;
-        bi++;
+      function tryOne() {
         if (bi >= brokers.length) {
-          if (cb) cb(null);
+          ranked._connecting = false;
+          flushCbs(null);
           return;
         }
-        tryConnect();
-      }
+        // Clean previous attempt only
+        try {
+          if (ranked.client) {
+            ranked.client.removeAllListeners();
+            ranked.client.end(true);
+          }
+        } catch (eK) {}
+        ranked.client = null;
 
-      function tryConnect() {
         var url = brokers[bi];
         var client;
         try {
           client = mqtt.connect(url, {
             clientId: "bac_rk_" + Math.random().toString(16).slice(2, 12),
             clean: true,
-            connectTimeout: 10000,
-            reconnectPeriod: 4000,
+            connectTimeout: 12000,
+            reconnectPeriod: 5000,
             keepalive: 30,
             protocolVersion: 4
           });
         } catch (e0) {
-          failOver();
+          bi++;
+          tryOne();
           return;
         }
         ranked.client = client;
-        var timedOut = false;
+        var done = false;
         var timer = setTimeout(function() {
-          if (settled) return;
-          timedOut = true;
+          if (done) return;
+          done = true;
           try { client.removeAllListeners(); client.end(true); } catch (e1) {}
-          failOver();
-        }, 9500);
+          bi++;
+          tryOne();
+        }, 10000);
 
         client.on("connect", function() {
-          if (timedOut || settled) return;
-          settled = true;
+          if (done) return;
+          done = true;
           clearTimeout(timer);
+          ranked._connecting = false;
           try {
             client.subscribe(RANKED_USERS_TOPIC, { qos: 1 });
             client.subscribe(RANKED_QUEUE_TOPIC, { qos: 1 });
             client.subscribe(RANKED_MATCH_TOPIC, { qos: 1 });
           } catch (eSub) {}
-          // Hydrate trophies then publish self
           setTimeout(function() {
             try {
               rankedHydrateLocalFromNetwork();
@@ -4547,10 +4559,9 @@
                 ranked.profile = ranked.profile || rankedLoadProfile();
                 rankedPublishUser(ranked.profile);
               }
-              rankedRenderUI();
             } catch (eBoot) {}
-          }, 500);
-          if (cb) cb(client);
+          }, 400);
+          flushCbs(client);
         });
 
         client.on("message", function(topic, buf) {
@@ -4559,29 +4570,29 @@
             if (!data) return;
             if (topic === RANKED_USERS_TOPIC && data.t === "users" && data.users) {
               rankedMergeUsers(data.users);
-              var changed = false;
-              try { changed = rankedHydrateLocalFromNetwork(); } catch (eH2) {}
+              try { rankedHydrateLocalFromNetwork(); } catch (eH) {}
               try {
                 if (document.getElementById("screen-ranked") &&
                     document.getElementById("screen-ranked").classList.contains("active")) {
                   rankedRenderLeaderboard();
-                  if (changed) rankedRenderUI();
+                  rankedRenderUI();
                 }
               } catch (rb) {}
-            }
-            if (topic === RANKED_QUEUE_TOPIC && data.t === "queue") {
+            } else if (topic === RANKED_QUEUE_TOPIC && data.t === "queue") {
               rankedOnQueueMessage(data);
-            }
-            if (topic === RANKED_MATCH_TOPIC && data.t === "match") {
+            } else if (topic === RANKED_MATCH_TOPIC && data.t === "match") {
               rankedOnMatchMessage(data);
             }
           } catch (e) {}
         });
         client.on("error", function() {});
-        client.on("close", function() {});
+        client.on("close", function() {
+          // Allow a future ensureClient to reconnect
+          if (ranked.client === client) ranked._connecting = false;
+        });
       }
 
-      tryConnect();
+      tryOne();
     }
 
     function rankedUsernameTaken(name) {
@@ -4859,27 +4870,32 @@
     function rankedOnQueueMessage(data) {
       if (!ranked.queueing || !ranked.profile) return;
       if (!data || !data.username) return;
-      // Ignore self
       if (data.username.toLowerCase() === ranked.profile.username.toLowerCase()) return;
-      // Don't match while already in an active draft or staring at results
-      if (mp && mp.active) return;
-      if (mp && mp.resultShown && mp.ranked) return;
-      // Already matched this second
       if (ranked._matching) return;
+      if (mp && mp.active) return;
+
+      // Remember recent queue peers
+      if (!ranked._queuePeers) ranked._queuePeers = {};
+      ranked._queuePeers[data.username.toLowerCase()] = {
+        username: data.username,
+        elo: data.elo != null ? data.elo : RANKED_START_ELO,
+        ts: Date.now()
+      };
 
       var me = ranked.profile.username;
       var them = data.username;
-      // Deterministic host: lower username hosts (avoids two rooms)
+      // Lower name hosts so only one room is created
       if (me.toLowerCase() < them.toLowerCase()) {
         rankedProposeMatch(them, data.elo != null ? data.elo : RANKED_START_ELO);
       }
     }
 
     function rankedProposeMatch(oppName, oppElo) {
-      if (!ranked.profile || !ranked.queueing) return;
-      if (ranked._matching) return;
+      if (!ranked.profile || !ranked.queueing || ranked._matching) return;
       if (mp && mp.active) return;
       ranked._matching = true;
+      rankedSetQueueStatus("Match found — connecting…", true);
+
       var code = Math.random().toString(36).slice(2, 8).toUpperCase();
       var payload = {
         t: "match",
@@ -4890,59 +4906,66 @@
         guest: oppName,
         guestElo: oppElo != null ? oppElo : RANKED_START_ELO
       };
+
+      function sendInvite(c) {
+        if (!c) return;
+        try { c.publish(RANKED_MATCH_TOPIC, JSON.stringify(payload), { qos: 1 }); } catch (e) {}
+      }
+
       rankedEnsureClient(function(c) {
-        if (!c || !c.connected) {
-          ranked._matching = false;
-          return;
-        }
-        // Burst the invite so the guest is unlikely to miss it
-        function pub() {
-          try { c.publish(RANKED_MATCH_TOPIC, JSON.stringify(payload), { qos: 1 }); } catch (e) {}
-        }
-        pub();
-        setTimeout(pub, 250);
-        setTimeout(pub, 600);
-        setTimeout(pub, 1200);
+        sendInvite(c);
+        setTimeout(function() { sendInvite(ranked.client); }, 200);
+        setTimeout(function() { sendInvite(ranked.client); }, 500);
+        setTimeout(function() { sendInvite(ranked.client); }, 1000);
+        setTimeout(function() { sendInvite(ranked.client); }, 2000);
         rankedStartMatch(code, true, oppName, oppElo);
       });
     }
 
     function rankedOnMatchMessage(data) {
-      if (!ranked.profile || !ranked.queueing) return;
-      if (!data || !data.code || !data.host) return;
-      if (ranked._matching) return;
+      if (!data || data.t !== "match" || !data.code || !data.host) return;
+      if (!ranked.profile) return;
+      // Guest path: we must be queueing and named as guest
+      if (!ranked.queueing || ranked._matching) return;
       if (mp && mp.active) return;
       var me = ranked.profile.username;
       if (!data.guest || data.guest.toLowerCase() !== me.toLowerCase()) return;
       ranked._matching = true;
+      rankedSetQueueStatus("Match found — joining…", true);
       rankedStartMatch(data.code, false, data.host, data.hostElo != null ? data.hostElo : RANKED_START_ELO);
     }
 
     function rankedAutoReadyTick() {
       if (!mp.ranked || mp.active || mp.resultShown) return;
-      // Ranked rule: ability grades always off
       mp.settings = {
         images: mp.settings && typeof mp.settings.images === "boolean" ? mp.settings.images : true,
         grades: false
       };
       try { mpApplySettings(mp.settings, false); } catch (e0) {}
+      if (!mp.client || !mp.client.connected) {
+        try {
+          var st0 = document.getElementById("muStatusText");
+          if (st0) st0.textContent = "Connecting to room…";
+        } catch (e) {}
+        return;
+      }
+      // Keep announcing presence
+      try { mpSend({ t: "hello", role: mp.role, ready: !!mp.ready }); } catch (eH) {}
+      try { mpSend({ t: "here", role: mp.role, ready: !!mp.ready }); } catch (eH2) {}
       if (mp.role === "host") {
         try { mpSend({ t: "settings", settings: mp.settings }); } catch (e1) {}
       }
       if (mp.oppConnected && !mp.ready) {
         mp.ready = true;
         try { mpSend({ t: "ready" }); } catch (e2) {}
-        try { mpUpdateLobby(); } catch (e3) {}
-        try { mpTryStart(); } catch (e4) {}
-      } else if (mp.oppConnected && mp.ready) {
-        try { mpTryStart(); } catch (e5) {}
       }
-      // Update matchup status text
+      if (mp.oppConnected && mp.ready) {
+        try { mpTryStart(); } catch (e3) {}
+      }
       try {
         var st = document.getElementById("muStatusText");
         if (st) {
-          if (!mp.client || !mp.client.connected) st.textContent = "Connecting to room…";
-          else if (!mp.oppConnected) st.textContent = "Waiting for opponent…";
+          if (!mp.oppConnected) st.textContent = "Waiting for opponent…";
           else if (!mp.ready || !mp.oppReady) st.textContent = "Both connected — starting…";
           else st.textContent = "Starting match…";
         }
@@ -4951,15 +4974,13 @@
 
     function rankedStartMatch(code, asHost, oppName, oppElo) {
       ranked.queueing = false;
-      ranked._matching = false;
       if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
-      rankedSetQueueStatus("Match found vs " + oppName + " (" + (oppElo != null ? oppElo : 0) + " trophies)!", true);
+      rankedSetQueueStatus("Match found vs " + oppName + "!", true);
       var btnQ = document.getElementById("btnRankedQueue");
       var btnC = document.getElementById("btnRankedCancelQueue");
       if (btnQ) btnQ.style.display = "";
       if (btnC) btnC.style.display = "none";
 
-      // Fresh room identity every match
       mp.ranked = true;
       mp.oppName = oppName;
       mp.oppElo = oppElo;
@@ -4980,7 +5001,7 @@
       mp.oppLabel = null;
       mp.settings = { images: true, grades: false };
       try { mpApplySettings(mp.settings, false); } catch (eS) {}
-      rankedApplyLock();
+      try { rankedApplyLock(); } catch (eL) {}
 
       (function fillMu() {
         var p = ranked.profile || rankedLoadProfile();
@@ -5000,23 +5021,24 @@
         if (el("muStatusText")) el("muStatusText").textContent = "Connecting…";
       })();
       showScreen("screen-mp-matchup");
-      rankedFillBanner();
+      try { rankedFillBanner(); } catch (eB) {}
 
-      // Connect both players into the shared room
-      try { mpConnectBroker(); } catch (eConn) {}
+      // Connect room after a tick so the matchup UI paints first
+      setTimeout(function() {
+        try { mpConnectBroker(); } catch (eC) {}
+      }, 100);
 
-      // Auto-ready loop until the race starts
       if (ranked._autoReadyTimer) clearInterval(ranked._autoReadyTimer);
       ranked._autoReadyTimer = setInterval(function() {
         if (!mp.ranked || mp.active || mp.resultShown) {
           clearInterval(ranked._autoReadyTimer);
           ranked._autoReadyTimer = null;
+          ranked._matching = false;
           return;
         }
         rankedAutoReadyTick();
-      }, 400);
-      // Kick once immediately after a short delay for connect
-      setTimeout(function() { try { rankedAutoReadyTick(); } catch (eAR) {} }, 700);
+      }, 500);
+      setTimeout(function() { try { rankedAutoReadyTick(); } catch (eAR) {} }, 800);
     }
 
     function rankedJoinQueue() {
@@ -5028,7 +5050,6 @@
         rankedSetQueueStatus("Ranked needs HTTPS (GitHub Pages)");
         return;
       }
-      // Fresh queue session — clear previous match flags
       try {
         mp.resultShown = false;
         mp.active = false;
@@ -5041,8 +5062,9 @@
         mp.oppConnected = false;
       } catch (eClr) {}
       ranked._matching = false;
+      ranked._queuePeers = {};
       ranked.queueing = true;
-      rankedSetQueueStatus("Searching for opponent…", true);
+      rankedSetQueueStatus("Connecting to matchmaking…", true);
       var btnQ = document.getElementById("btnRankedQueue");
       var btnC = document.getElementById("btnRankedCancelQueue");
       if (btnQ) btnQ.style.display = "none";
@@ -5050,25 +5072,28 @@
 
       function pulseQueue() {
         if (!ranked.queueing || !ranked.profile) return;
-        rankedEnsureClient(function(c) {
-          if (!c || !c.connected) {
-            rankedSetQueueStatus("Reconnecting to matchmaking…", true);
-            return;
-          }
-          try {
-            c.publish(RANKED_QUEUE_TOPIC, JSON.stringify({
-              t: "queue",
-              ts: Date.now(),
-              username: ranked.profile.username,
-              elo: ranked.profile.elo != null ? ranked.profile.elo : RANKED_START_ELO
-            }), { qos: 1 });
-          } catch (ePub) {}
-        });
+        var c = ranked.client;
+        if (!c || !c.connected) {
+          rankedSetQueueStatus("Connecting to matchmaking…", true);
+          rankedEnsureClient(function() {});
+          return;
+        }
+        try {
+          c.publish(RANKED_QUEUE_TOPIC, JSON.stringify({
+            t: "queue",
+            ts: Date.now(),
+            username: ranked.profile.username,
+            elo: ranked.profile.elo != null ? ranked.profile.elo : RANKED_START_ELO
+          }), { qos: 1 });
+          rankedSetQueueStatus("Searching for opponent…", true);
+        } catch (ePub) {
+          rankedSetQueueStatus("Search error — retrying…", true);
+        }
       }
 
       rankedEnsureClient(function(c) {
-        if (!c) {
-          rankedSetQueueStatus("Could not connect — try again");
+        if (!c || !c.connected) {
+          rankedSetQueueStatus("Could not connect — tap Find Match again");
           ranked.queueing = false;
           if (btnQ) btnQ.style.display = "";
           if (btnC) btnC.style.display = "none";
@@ -5077,8 +5102,7 @@
         rankedSetQueueStatus("Searching for opponent…", true);
         pulseQueue();
         if (ranked.queueTimer) clearInterval(ranked.queueTimer);
-        // Faster pulse so two players find each other quickly
-        ranked.queueTimer = setInterval(pulseQueue, 1500);
+        ranked.queueTimer = setInterval(pulseQueue, 1200);
       });
     }
 
