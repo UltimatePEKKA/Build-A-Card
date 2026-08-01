@@ -1011,10 +1011,10 @@
         </div>
         <div class="mp-diff" id="mpResDiff">—</div>
         <div class="home-actions" style="margin-top:20px;flex-direction:column;max-width:280px;margin-left:auto;margin-right:auto">
-          <button class="btn btn-primary" id="btnMpQueueAgain" type="button">Queue Again</button>
+          <button class="btn btn-primary" id="btnMpQueueAgain" type="button">Play Again</button>
+          <button class="btn btn-secondary" id="btnMpHome" type="button">Menu</button>
           <button class="btn btn-secondary" id="btnMpViewCard" type="button">View My Card</button>
           <button class="btn btn-secondary" id="btnMpRematch" type="button">Casual Lobby</button>
-          <button class="btn btn-secondary" id="btnMpHome" type="button">Ranked Home</button>
         </div>
       </div>
     </section>
@@ -1188,16 +1188,6 @@
         img: "https://api-assets.clashroyale.com/cards/300/rhogs.png" },
       { name: "Three Musketeers", slug: "three-musketeers", rarity: "Rare", hp: 720, dmg: 220, hitSpeed: 1.1, range: "6", speed: "Medium", elixir: 9, special: "Triple sniper squad",
         img: "https://api-assets.clashroyale.com/cards/300/3m.png" },
-      { name: "Goblin Cage", slug: "goblin-cage", rarity: "Rare", hp: 800, dmg: 0, hitSpeed: 0, range: "Building", speed: "Building", elixir: 4, special: "Spawns Brawler on death",
-        img: "https://api-assets.clashroyale.com/cards/300/gcage.png" },
-      { name: "Inferno Tower", slug: "inferno-tower", rarity: "Rare", hp: 1600, dmg: 50, hitSpeed: 0.4, range: "6", speed: "Building", elixir: 5, special: "Ramps to melt tanks",
-        img: "https://api-assets.clashroyale.com/cards/300/GLjYIVTn_rVZwnu32f2hyg35trSXOpH198K49kiCezs.png" },
-      { name: "Fireball", slug: "fireball", rarity: "Rare", hp: 0, dmg: 650, hitSpeed: 0, range: "2.5 area", speed: "Spell", elixir: 4, special: "Area damage + knockback",
-        img: "https://api-assets.clashroyale.com/cards/300/lZD9MILQv7O-P3XBr_xOLS5idwuz3_7Ws9G60U36yhc.png" },
-      { name: "Zap", slug: "zap", rarity: "Common", hp: 0, dmg: 190, hitSpeed: 0, range: "2.5 area", speed: "Spell", elixir: 2, special: "Stun + reset",
-        img: "https://api-assets.clashroyale.com/cards/300/7ehXF_N0wx_g4tB6p43ykXCPoyowzOIyHc-3EGcwZAs.png" },
-      { name: "Rocket", slug: "rocket", rarity: "Rare", hp: 0, dmg: 1400, hitSpeed: 0, range: "2 area", speed: "Spell", elixir: 6, special: "Massive single hit",
-        img: "https://api-assets.clashroyale.com/cards/300/Ie07nQNK9CjhKOa4-arFAewi4EroqaA-86Xo7r5tx94.png" },
       { name: "Baby Dragon", slug: "baby-dragon", rarity: "Epic", hp: 1100, dmg: 140, hitSpeed: 1.6, range: "3.5", speed: "Fast", elixir: 4, special: "Flying splash",
         img: "https://api-assets.clashroyale.com/cards/300/cjC9n4AvEZJ3urkVh-rwBkJ-aRSsydIMqSAV48hAih0.png" },
       { name: "Skeleton Army", slug: "skeleton-army", rarity: "Epic", hp: 70, dmg: 70, hitSpeed: 1.0, range: "Melee", speed: "Fast", elixir: 3, special: "Massive swarm",
@@ -1232,8 +1222,6 @@
         img: "https://api-assets.clashroyale.com/cards/300/bowler.png" },
       { name: "Goblin Drill", slug: "goblin-drill", rarity: "Epic", hp: 1100, dmg: 100, hitSpeed: 1.3, range: "Melee", speed: "Building", elixir: 4, special: "Surfaces under towers",
         img: "https://api-assets.clashroyale.com/cards/300/gdrill.png" },
-      { name: "Poison", slug: "poison", rarity: "Epic", hp: 0, dmg: 90, hitSpeed: 0, range: "3.5 area", speed: "Spell", elixir: 4, special: "DoT + slow zone",
-        img: "https://api-assets.clashroyale.com/cards/300/poison.png" },
       { name: "The Log", slug: "the-log", rarity: "Legendary", hp: 0, dmg: 280, hitSpeed: 0, range: "Roll", speed: "Spell", elixir: 2, special: "Knockback roll",
         img: "https://api-assets.clashroyale.com/cards/300/_iDwuDLexHPFZDBCSQ_jUTM0OpEg4xJHvq4ziR0BQ1A.png" },
       { name: "Ice Wizard", slug: "ice-wizard", rarity: "Legendary", hp: 800, dmg: 80, hitSpeed: 1.7, range: "5.5", speed: "Medium", elixir: 3, special: "Slows everything",
@@ -1309,7 +1297,6 @@
       "archers": "Evo Power Shot: +50% damage to far targets (+1 range)",
       "skeletons": "Evo Skele-Cloning: Each attack can spawn another skeleton (max 8)",
       "mortar": "Evo Green Siege: Every shot that lands also spawns a goblin",
-      "zap": "Evo: Attacks briefly stun enemies",
       "royal-giant": "Evo Royal Shockwave: Each shot creates a ground knockback wave",
       "wizard": "Evo Fiery Field: Shield that explodes for damage + knockback when broken",
       "valkyrie": "Evo Whirlwind Axe: Each attack briefly pulls nearby troops inward",
@@ -1545,7 +1532,7 @@
     // mini-pekka uses Hero kit in-game for ability text; deck slot uses evo when applicable.
     var CARD_ROLES = {
       "knight": "evo", "archers": "evo", "skeletons": "evo", "mortar": "evo",
-      "cannon": "evo", "zap": "evo", "royal-giant": "evo", "wizard": "evo", "valkyrie": "evo",
+      "cannon": "evo", "royal-giant": "evo", "wizard": "evo", "valkyrie": "evo",
       "executioner": "evo", "mega-knight": "evo",
       "musketeer": "evo", "pekka": "evo", "witch": "evo",
       "dart-goblin": "evo", "lumberjack": "evo",
@@ -4227,24 +4214,46 @@
           else diffEl.textContent = "Exact same rating" + (eloLine ? " · " + eloLine : "");
         }
       }
-      // Ranked: no casual rematch — must requeue
+      // Stop any ranked matchmaking so a new match cannot auto-start
+      try {
+        ranked.queueing = false;
+        if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
+      } catch (eQ) {}
+      try { rankedClearLock(); } catch (eL) {}
+
       var rematchBtn = document.getElementById("btnMpRematch");
       var queueBtn = document.getElementById("btnMpQueueAgain");
+      var homeBtn = document.getElementById("btnMpHome");
+      var viewBtn = document.getElementById("btnMpViewCard");
       if (mp.ranked) {
+        // Ranked end screen: Play Again + Menu only (plus optional view card)
         if (rematchBtn) rematchBtn.style.display = "none";
-        if (queueBtn) { queueBtn.style.display = ""; queueBtn.textContent = "Find Ranked Match"; }
+        if (queueBtn) {
+          queueBtn.style.display = "";
+          queueBtn.textContent = "Play Again";
+        }
+        if (homeBtn) {
+          homeBtn.style.display = "";
+          homeBtn.textContent = "Menu";
+        }
+        if (viewBtn) viewBtn.style.display = "";
+        // Stay on the match result screen — do not bounce into another queue
+        showScreen("screen-mp-result");
       } else {
         if (rematchBtn) rematchBtn.style.display = "";
-        if (queueBtn) { queueBtn.style.display = "none"; }
+        if (queueBtn) queueBtn.style.display = "none";
+        if (homeBtn) {
+          homeBtn.style.display = "";
+          homeBtn.textContent = "Home";
+        }
+        showScreen("screen-result");
+        setTimeout(function() { showScreen("screen-mp-result"); }, 900);
       }
-      rankedClearLock();
-      showScreen("screen-result");
-      setTimeout(function() { showScreen("screen-mp-result"); }, 900);
     }
 
     /* ==================== RANKED / TROPHY ROAD ==================== */
     var RANKED_PROFILE_KEY = "bac-ranked-profile-v1";
-    var RANKED_USERS_TOPIC = "buildacard/v4/ranked/users";
+    var RANKED_USERS_TOPIC = "buildacard/v5/ranked/users";
     var RANKED_QUEUE_TOPIC = "buildacard/v3/ranked/queue";
     var RANKED_MATCH_TOPIC = "buildacard/v3/ranked/match";
     var RANKED_START_ELO = 0; // trophies start at 0 (Arena 1)
@@ -4343,6 +4352,8 @@
     function rankedSaveProfile(p) {
       ranked.profile = p;
       try { localStorage.setItem(RANKED_PROFILE_KEY, JSON.stringify(p)); } catch (e) {}
+      // Always push to the shared board when we save
+      try { rankedPublishUser(p); } catch (ePub) {}
     }
 
     function rankedEloDelta(myElo, oppElo, score) {
@@ -4351,32 +4362,106 @@
       return Math.round(RANKED_K * (score - exp));
     }
 
+    function rankedNormalizeUser(u) {
+      if (!u || !u.username) return null;
+      return {
+        username: String(u.username).slice(0, 16),
+        elo: Math.max(0, Number(u.elo) || 0),
+        wins: Math.max(0, Number(u.wins) || 0),
+        losses: Math.max(0, Number(u.losses) || 0),
+        updated: Number(u.updated) || 0
+      };
+    }
+
+    /** Merge remote users into ranked.users — newer updated timestamp wins per username. */
+    function rankedMergeUsers(remoteMap) {
+      if (!remoteMap || typeof remoteMap !== "object") return;
+      Object.keys(remoteMap).forEach(function(k) {
+        var incoming = rankedNormalizeUser(remoteMap[k]);
+        if (!incoming) return;
+        var key = incoming.username.toLowerCase();
+        var prev = ranked.users[key];
+        if (!prev) {
+          ranked.users[key] = incoming;
+          return;
+        }
+        var prevUp = Number(prev.updated) || 0;
+        var nextUp = Number(incoming.updated) || 0;
+        if (nextUp > prevUp) {
+          ranked.users[key] = incoming;
+        } else if (nextUp === prevUp) {
+          // Same timestamp: keep the higher trophy count (more progress)
+          if ((incoming.elo || 0) > (prev.elo || 0) ||
+              ((incoming.elo || 0) === (prev.elo || 0) &&
+               ((incoming.wins || 0) + (incoming.losses || 0)) > ((prev.wins || 0) + (prev.losses || 0)))) {
+            ranked.users[key] = incoming;
+          }
+        }
+      });
+    }
+
+    /** If the network has a newer record for our username, adopt it locally. */
+    function rankedHydrateLocalFromNetwork() {
+      var p = ranked.profile || rankedLoadProfile();
+      if (!p || !p.username) return false;
+      var remote = ranked.users[p.username.toLowerCase()];
+      if (!remote) return false;
+      var localUp = Number(p.updated) || 0;
+      var remoteUp = Number(remote.updated) || 0;
+      if (remoteUp > localUp) {
+        p.elo = Math.max(0, Number(remote.elo) || 0);
+        p.wins = Math.max(0, Number(remote.wins) || 0);
+        p.losses = Math.max(0, Number(remote.losses) || 0);
+        p.updated = remoteUp;
+        ranked.profile = p;
+        try { localStorage.setItem(RANKED_PROFILE_KEY, JSON.stringify(p)); } catch (e) {}
+        return true;
+      }
+      return false;
+    }
+
     function rankedApplyMatchResult(outcome, oppElo, oppName) {
       var p = ranked.profile || rankedLoadProfile();
       if (!p) return null;
+      // Pull any newer network state first so we don't overwrite with a stale local copy
+      try { rankedHydrateLocalFromNetwork(); p = ranked.profile || p; } catch (eH) {}
       var delta = rankedEloDelta(p.elo, oppElo || RANKED_START_ELO, outcome);
       p.elo = Math.max(0, p.elo + delta);
       if (outcome === 1) p.wins = (p.wins || 0) + 1;
       else if (outcome === 0) p.losses = (p.losses || 0) + 1;
       p.updated = Date.now();
       rankedSaveProfile(p);
-      rankedPublishUser(p);
+      // Extra publish burst so other devices pick it up quickly
+      try {
+        setTimeout(function() { rankedPublishUser(p); }, 300);
+        setTimeout(function() { rankedPublishUser(p); }, 1200);
+      } catch (eB) {}
       rankedRenderUI();
       return { elo: p.elo, delta: delta, oppName: oppName };
     }
 
     function rankedPublishUser(p) {
       if (!p || !p.username) return;
-      ranked.users[p.username.toLowerCase()] = {
+      var entry = rankedNormalizeUser({
         username: p.username,
         elo: p.elo,
         wins: p.wins || 0,
         losses: p.losses || 0,
-        updated: Date.now()
-      };
+        updated: p.updated || Date.now()
+      });
+      if (!entry) return;
+      var key = entry.username.toLowerCase();
+      var prev = ranked.users[key];
+      // Don't clobber a newer network entry with an older local publish
+      if (prev && (Number(prev.updated) || 0) > entry.updated) {
+        entry = rankedNormalizeUser(prev);
+      } else {
+        ranked.users[key] = entry;
+      }
       rankedEnsureClient(function(c) {
-        if (!c) return;
+        if (!c || !c.connected) return;
         try {
+          // Retained shared board — every device sees the same full user map
           c.publish(RANKED_USERS_TOPIC, JSON.stringify({
             t: "users",
             ts: Date.now(),
@@ -4408,6 +4493,17 @@
           client.subscribe(RANKED_USERS_TOPIC, { qos: 1 });
           client.subscribe(RANKED_QUEUE_TOPIC, { qos: 1 });
           client.subscribe(RANKED_MATCH_TOPIC, { qos: 1 });
+          // After connect, wait briefly for retained users board, then hydrate + publish self
+          setTimeout(function() {
+            try {
+              rankedHydrateLocalFromNetwork();
+              if (ranked.profile || rankedLoadProfile()) {
+                ranked.profile = ranked.profile || rankedLoadProfile();
+                rankedPublishUser(ranked.profile);
+              }
+              rankedRenderUI();
+            } catch (eBoot) {}
+          }, 800);
           if (cb) cb(client);
         });
         client.on("message", function(topic, buf) {
@@ -4415,11 +4511,14 @@
             var data = JSON.parse(buf.toString());
             if (!data) return;
             if (topic === RANKED_USERS_TOPIC && data.t === "users" && data.users) {
-              ranked.users = Object.assign({}, ranked.users, data.users);
+              rankedMergeUsers(data.users);
+              var changed = false;
+              try { changed = rankedHydrateLocalFromNetwork(); } catch (eH2) {}
               try {
                 if (document.getElementById("screen-ranked") &&
                     document.getElementById("screen-ranked").classList.contains("active")) {
                   rankedRenderLeaderboard();
+                  if (changed) rankedRenderUI();
                 }
               } catch (rb) {}
             }
@@ -4432,6 +4531,7 @@
           } catch (e) {}
         });
         client.on("error", function() {});
+        client.on("close", function() {});
         setTimeout(function() { if (cb && (!ranked.client || !ranked.client.connected)) cb(ranked.client); }, 4000);
       } catch (e) {
         if (cb) cb(null);
@@ -4463,22 +4563,46 @@
         return;
       }
       rankedEnsureClient(function() {
-        if (rankedUsernameTaken(raw)) {
-          if (status) { status.textContent = "That username is taken — try another"; status.className = "ranked-status"; }
-          return;
-        }
-        var p = {
-          username: raw,
-          elo: RANKED_START_ELO,
-          wins: 0,
-          losses: 0,
-          created: Date.now(),
-          updated: Date.now()
-        };
-        rankedSaveProfile(p);
-        rankedPublishUser(p);
-        rankedRenderUI();
-        if (status) { status.textContent = "Welcome to Goblin Stadium, " + raw + "! · 0 trophies"; status.className = "ranked-status hot"; }
+        // Give retained board a moment to arrive so "taken" checks are global
+        setTimeout(function() {
+          if (rankedUsernameTaken(raw)) {
+            if (status) { status.textContent = "That username is taken — try another"; status.className = "ranked-status"; }
+            return;
+          }
+          // If this username already exists on the network with progress, log into that record
+          var existing = ranked.users[raw.toLowerCase()];
+          var p;
+          if (existing && existing.username) {
+            p = {
+              username: existing.username,
+              elo: Math.max(0, Number(existing.elo) || 0),
+              wins: Math.max(0, Number(existing.wins) || 0),
+              losses: Math.max(0, Number(existing.losses) || 0),
+              created: Date.now(),
+              updated: Number(existing.updated) || Date.now()
+            };
+            rankedSaveProfile(p);
+            rankedPublishUser(p);
+            rankedRenderUI();
+            if (status) {
+              status.textContent = "Welcome back, " + p.username + "! · " + p.elo + " trophies";
+              status.className = "ranked-status hot";
+            }
+            return;
+          }
+          p = {
+            username: raw,
+            elo: RANKED_START_ELO,
+            wins: 0,
+            losses: 0,
+            created: Date.now(),
+            updated: Date.now()
+          };
+          rankedSaveProfile(p);
+          rankedPublishUser(p);
+          rankedRenderUI();
+          if (status) { status.textContent = "Welcome to Goblin Stadium, " + raw + "! · 0 trophies"; status.className = "ranked-status hot"; }
+        }, 900);
       });
     }
 
@@ -4608,8 +4732,23 @@
       ranked.profile = rankedLoadProfile();
       rankedRenderUI();
       rankedEnsureClient(function() {
+        try { rankedHydrateLocalFromNetwork(); } catch (e1) {}
+        ranked.profile = ranked.profile || rankedLoadProfile();
         if (ranked.profile) rankedPublishUser(ranked.profile);
+        rankedRenderUI();
       });
+      // Keep board + own trophies fresh while on this screen
+      if (ranked._syncTimer) clearInterval(ranked._syncTimer);
+      ranked._syncTimer = setInterval(function() {
+        try {
+          if (!(document.getElementById("screen-ranked") &&
+                document.getElementById("screen-ranked").classList.contains("active"))) return;
+          rankedHydrateLocalFromNetwork();
+          if (ranked.profile) rankedPublishUser(ranked.profile);
+          rankedRenderLeaderboard();
+          rankedRenderUI();
+        } catch (eS) {}
+      }, 8000);
       showScreen("screen-ranked");
     }
 
@@ -4622,6 +4761,8 @@
 
     function rankedOnQueueMessage(data) {
       if (!ranked.queueing || !ranked.profile) return;
+      // Never accept matches while viewing results or mid-draft of a finished session
+      if (mp && (mp.resultShown || mp.active)) return;
       if (!data.username || data.username.toLowerCase() === ranked.profile.username.toLowerCase()) return;
       // Found someone — player with lexicographically smaller username hosts
       var me = ranked.profile.username;
@@ -4633,6 +4774,7 @@
 
     function rankedProposeMatch(oppName, oppElo) {
       if (!ranked.profile || !ranked.queueing) return;
+      if (mp && (mp.resultShown || mp.active)) return;
       var code = Math.random().toString(36).slice(2, 8).toUpperCase();
       rankedEnsureClient(function(c) {
         if (!c) return;
@@ -4653,6 +4795,7 @@
 
     function rankedOnMatchMessage(data) {
       if (!ranked.profile || !ranked.queueing) return;
+      if (mp && (mp.resultShown || mp.active)) return;
       var me = ranked.profile.username;
       if (data.guest && data.guest.toLowerCase() === me.toLowerCase() && data.host) {
         rankedStartMatch(data.code, false, data.host, data.hostElo || RANKED_START_ELO);
@@ -4738,6 +4881,15 @@
         rankedSetQueueStatus("Ranked needs HTTPS (GitHub Pages)");
         return;
       }
+      // Fresh queue session — clear previous match flags
+      try {
+        mp.resultShown = false;
+        mp.active = false;
+        mp.myDone = false;
+        mp.oppDone = false;
+        mp.ranked = false;
+        mp.code = null;
+      } catch (eClr) {}
       ranked.queueing = true;
       rankedSetQueueStatus("Searching for opponent…", true);
       var btnQ = document.getElementById("btnRankedQueue");
@@ -4922,23 +5074,35 @@
       });
       mpBind("btnMpLeave", mpLeave);
       mpBind("btnMpHome", function() {
+        // Menu: back to ranked menu (or home) — do not auto-queue
+        try { ranked.queueing = false; } catch (e0) {}
+        if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
+        var wasRanked = !!mp.ranked || !!(ranked && ranked.profile);
         mpLeave();
         rankedClearLock();
-        if (typeof rankedShowScreen === "function") rankedShowScreen();
+        if (wasRanked && typeof rankedShowScreen === "function") rankedShowScreen();
         else showHome();
       });
       mpBind("btnMpQueueAgain", function() {
+        // Play Again: leave the finished room, open ranked menu, then normal queue (not rematch)
+        var wasRanked = !!mp.ranked;
+        try { ranked.queueing = false; } catch (e0) {}
+        if (ranked.queueTimer) { clearInterval(ranked.queueTimer); ranked.queueTimer = null; }
         mpLeave();
         rankedClearLock();
-        rankedShowScreen();
-        setTimeout(function() {
-          if (ranked.profile) rankedJoinQueue();
-        }, 400);
+        if (wasRanked || (ranked && ranked.profile)) {
+          rankedShowScreen();
+          setTimeout(function() {
+            if (ranked.profile) rankedJoinQueue();
+          }, 500);
+        } else {
+          showHome();
+        }
       });
       mpBind("btnMpViewCard", function() { showScreen("screen-result"); });
       mpBind("btnMpRematch", function() {
         if (mp.ranked) {
-          // Ranked: no instant rematch — return to ranked home to requeue
+          // Ranked never rematches the same opponent from this screen
           mpLeave();
           rankedClearLock();
           rankedShowScreen();
@@ -4982,8 +5146,17 @@
         });
       }
 
-      // Connect to shared leaderboard early (retained MQTT board)
+      // Connect to shared leaderboard + ranked users board early
       try { ensureLbClient(function() {}); } catch (lbInitErr) {}
+      try {
+        rankedEnsureClient(function() {
+          try {
+            ranked.profile = rankedLoadProfile();
+            rankedHydrateLocalFromNetwork();
+            if (ranked.profile) rankedPublishUser(ranked.profile);
+          } catch (eRk) {}
+        });
+      } catch (rkInitErr) {}
 
 
       var nameInputEl = document.getElementById("cardNameInput");
