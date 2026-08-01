@@ -808,7 +808,7 @@
         <div id="rankedAuthBox" class="ranked-auth">
           <input type="text" id="rankedUsernameInput" maxlength="16" placeholder="Choose a unique username" autocomplete="off" />
           <button class="btn btn-primary" id="btnRankedClaim" type="button">Create Ranked Account</button>
-          <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.45">Starts at <strong style="color:var(--gold)">1000 trophies</strong> · Arena 10 · ability grades stay hidden in ranked</p>
+          <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.45">Starts at <strong style="color:var(--gold)">0 trophies</strong> · Arena 1 · ability grades stay hidden in ranked</p>
         </div>
         <div id="rankedPlayBox" class="hidden">
           <div class="trophy-road" id="trophyRoad"></div>
@@ -913,12 +913,33 @@
         </div>
       </div>
     </section>
+    <section id="screen-mp-matchup" class="screen">
+      <div class="home-card" style="max-width:520px;margin:0 auto;text-align:center">
+        <div style="font-size:12px;font-weight:800;letter-spacing:1px;color:var(--gold);text-transform:uppercase;margin-bottom:10px">Ranked Match</div>
+        <div class="mp-score-grid" style="margin-top:8px">
+          <div class="mp-score-card you">
+            <div class="lbl" id="muYouName">You</div>
+            <div class="sc" id="muYouTrophies" style="font-size:28px">0</div>
+            <div class="sub" id="muYouArena">Arena 1</div>
+          </div>
+          <div class="mp-vs">VS</div>
+          <div class="mp-score-card">
+            <div class="lbl" id="muOppName">Opponent</div>
+            <div class="sc" id="muOppTrophies" style="font-size:28px">0</div>
+            <div class="sub" id="muOppArena">Arena 1</div>
+          </div>
+        </div>
+        <div class="mp-status-pill live" style="margin:18px auto"><span class="dot"></span><span id="muStatusText">Loading match…</span></div>
+        <p style="font-size:13px;color:var(--muted);margin-top:8px">Ability grades hidden · Race starts automatically</p>
+      </div>
+    </section>
     <section id="screen-mp-wait" class="screen">
       <div class="home-card" style="max-width:520px;margin:0 auto;text-align:center">
         <h2>Race finished</h2>
         <div class="mp-status-pill warn" style="margin:14px auto"><span class="dot"></span><span>Waiting on opponent</span></div>
         <p id="mpWaitStatus" style="color:var(--muted);margin-top:12px;line-height:1.55">Opponent still drafting… Your score is locked in.</p>
-        <p style="font-size:12px;color:var(--muted);margin-top:10px">Results appear as soon as they finish.</p>
+        <p style="font-size:12px;color:var(--muted);margin-top:10px">Results appear as soon as they finish. Resending score…</p>
+        <button class="btn btn-secondary" id="btnMpWaitResend" type="button" style="margin-top:14px">Resend my score</button>
       </div>
     </section>
     <section id="screen-mp-result" class="screen">
@@ -3394,6 +3415,10 @@
       mp.presenceTimer = setInterval(function() {
         if (!mp.client || !mp.client.connected || !mp.topic) return;
         mpSend({ t: "here", role: mp.role, ready: !!mp.ready });
+        // Keep resending final score so opponent never stays stuck on "waiting"
+        if (mp.myDone && !mp.resultShown) {
+          mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+        }
         if (mp.role === "host") {
           mpSend({ t: "settings", settings: mp.settings });
         }
@@ -3493,7 +3518,14 @@
         mp.oppDone = true;
         mp.oppScore = data.score;
         mp.oppLabel = data.label || "Opponent";
-        mpRevealResults();
+        // If we finished too, show results; also re-broadcast our score so they can unlock
+        if (mp.myDone) {
+          mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+          mpRevealResults();
+        } else {
+          var stWait = document.getElementById("mpWaitStatus");
+          if (stWait) stWait.textContent = "Opponent finished (" + (mp.oppScore != null ? mp.oppScore : "—") + "). Keep drafting…";
+        }
       } else if (data.t === "rematch") {
         mp.ready = false; mp.oppReady = false; mp.myDone = false; mp.oppDone = false;
         mp.resultShown = false; mp.active = false;
@@ -3665,16 +3697,30 @@
     }
     function mpBeginRace() {
       if (mp.active) return;
+      // Ranked: show matchup loading screen first (names, trophies, arenas)
+      if (mp.ranked && !mp._matchupShown) {
+        mp._matchupShown = true;
+        rankedShowMatchupThenStart();
+        return;
+      }
       mp.active = true; mp.myDone = false; mp.oppDone = false; mp.resultShown = false;
+      mp._matchupShown = false;
       startGame();
     }
     function mpOnLocalDone(score, label) {
       mp.myDone = true; mp.myScore = score; mp.myLabel = label || "Your Card";
-      mpSend({ t: "done", score: score, label: mp.myLabel });
+      function pushDone() {
+        mpSend({ t: "done", score: mp.myScore, label: mp.myLabel });
+      }
+      pushDone();
+      // Burst a few more times in case the first publish is lost
+      setTimeout(pushDone, 400);
+      setTimeout(pushDone, 1200);
+      setTimeout(pushDone, 2500);
       if (mp.oppDone) mpRevealResults();
       else {
         var st = document.getElementById("mpWaitStatus");
-        if (st) st.textContent = "Opponent still drafting…";
+        if (st) st.textContent = "Opponent still drafting… Your score (" + score + ") is locked in and being sent.";
         showScreen("screen-mp-wait");
       }
     }
@@ -3728,26 +3774,35 @@
     var RANKED_USERS_TOPIC = "buildacard/v3/ranked/users";
     var RANKED_QUEUE_TOPIC = "buildacard/v3/ranked/queue";
     var RANKED_MATCH_TOPIC = "buildacard/v3/ranked/match";
-    var RANKED_START_ELO = 1000;
+    var RANKED_START_ELO = 0; // trophies start at 0 (Arena 1)
     var RANKED_K = 30; // ~±15 for equal opponents
 
-    // arenaImg = RoyaleAPI file index (arena0 = Training, arena1 = Goblin Stadium, … arena10 = Hog Mountain)
+    // Full road from Arena 1. arenaImg matches RoyaleAPI arenaN.png (arena1 = Goblin Stadium)
     var RANKED_ARENAS = [
-      { id: 10, name: "Hog Mountain", min: 1000, arenaImg: 10 },
-      { id: 11, name: "Electro Valley", min: 1100, arenaImg: 11 },
-      { id: 12, name: "Spooky Town", min: 1200, arenaImg: 12 },
-      { id: 13, name: "Rascal's Hideout", min: 1300, arenaImg: 13 },
-      { id: 14, name: "Serenity Peak", min: 1400, arenaImg: 14 },
-      { id: 15, name: "Miner's Mine", min: 1500, arenaImg: 15 },
-      { id: 16, name: "Executioner's Kitchen", min: 1600, arenaImg: 16 },
-      { id: 17, name: "Royal Crypt", min: 1700, arenaImg: 17 },
-      { id: 18, name: "Silent Sanctuary", min: 1800, arenaImg: 18 },
-      { id: 19, name: "Dragon Spa", min: 1900, arenaImg: 19 },
-      { id: 20, name: "Boot Camp", min: 2000, arenaImg: 20 },
-      { id: 21, name: "Clash Fest", min: 2100, arenaImg: 21 },
-      { id: 22, name: "PANCAKES!", min: 2200, arenaImg: 22 },
-      { id: 23, name: "Valkalla", min: 2300, arenaImg: 23 },
-      { id: 24, name: "Legendary Arena", min: 2400, arenaImg: 24 }
+      { id: 1, name: "Goblin Stadium", min: 0, arenaImg: 1 },
+      { id: 2, name: "Bone Pit", min: 100, arenaImg: 2 },
+      { id: 3, name: "Barbarian Bowl", min: 200, arenaImg: 3 },
+      { id: 4, name: "Spell Valley", min: 300, arenaImg: 4 },
+      { id: 5, name: "Builder's Workshop", min: 400, arenaImg: 5 },
+      { id: 6, name: "P.E.K.K.A's Playhouse", min: 500, arenaImg: 6 },
+      { id: 7, name: "Royal Arena", min: 600, arenaImg: 7 },
+      { id: 8, name: "Frozen Peak", min: 700, arenaImg: 8 },
+      { id: 9, name: "Jungle Arena", min: 800, arenaImg: 9 },
+      { id: 10, name: "Hog Mountain", min: 900, arenaImg: 10 },
+      { id: 11, name: "Electro Valley", min: 1000, arenaImg: 11 },
+      { id: 12, name: "Spooky Town", min: 1100, arenaImg: 12 },
+      { id: 13, name: "Rascal's Hideout", min: 1200, arenaImg: 13 },
+      { id: 14, name: "Serenity Peak", min: 1300, arenaImg: 14 },
+      { id: 15, name: "Miner's Mine", min: 1400, arenaImg: 15 },
+      { id: 16, name: "Executioner's Kitchen", min: 1500, arenaImg: 16 },
+      { id: 17, name: "Royal Crypt", min: 1600, arenaImg: 17 },
+      { id: 18, name: "Silent Sanctuary", min: 1700, arenaImg: 18 },
+      { id: 19, name: "Dragon Spa", min: 1800, arenaImg: 19 },
+      { id: 20, name: "Boot Camp", min: 1900, arenaImg: 20 },
+      { id: 21, name: "Clash Fest", min: 2000, arenaImg: 21 },
+      { id: 22, name: "PANCAKES!", min: 2100, arenaImg: 22 },
+      { id: 23, name: "Valkalla", min: 2200, arenaImg: 23 },
+      { id: 24, name: "Legendary Arena", min: 2300, arenaImg: 24 }
     ];
 
     function rankedArenaImgUrl(imgId) {
@@ -3933,7 +3988,7 @@
         rankedSaveProfile(p);
         rankedPublishUser(p);
         rankedRenderUI();
-        if (status) { status.textContent = "Welcome to Hog Mountain, " + raw + "! · 1000 trophies"; status.className = "ranked-status hot"; }
+        if (status) { status.textContent = "Welcome to Goblin Stadium, " + raw + "! · 0 trophies"; status.className = "ranked-status hot"; }
       });
     }
 
@@ -3992,10 +4047,33 @@
         if (auth) auth.classList.remove("hidden");
         if (play) play.classList.add("hidden");
         if (backOnly) backOnly.classList.remove("hidden");
-        if (eloEl) eloEl.innerHTML = "1000<span>Trophies</span>";
-        if (arenaEl) arenaEl.textContent = "Hog Mountain";
+        if (eloEl) eloEl.innerHTML = "0<span>Trophies</span>";
+        if (arenaEl) arenaEl.textContent = "Goblin Stadium";
         if (userEl) userEl.textContent = "Not signed in";
       }
+    }
+
+    function rankedShowMatchupThenStart() {
+      var p = ranked.profile || rankedLoadProfile();
+      var myName = (p && p.username) || "You";
+      var myElo = (p && p.elo != null) ? p.elo : RANKED_START_ELO;
+      var myArena = rankedArenaForElo(myElo);
+      var oppName = mp.oppName || "Opponent";
+      var oppElo = mp.oppElo != null ? mp.oppElo : RANKED_START_ELO;
+      var oppArena = rankedArenaForElo(oppElo);
+      var el = function(id) { return document.getElementById(id); };
+      if (el("muYouName")) el("muYouName").textContent = myName;
+      if (el("muYouTrophies")) el("muYouTrophies").textContent = myElo;
+      if (el("muYouArena")) el("muYouArena").textContent = "Arena " + myArena.id + " · " + myArena.name;
+      if (el("muOppName")) el("muOppName").textContent = oppName;
+      if (el("muOppTrophies")) el("muOppTrophies").textContent = oppElo;
+      if (el("muOppArena")) el("muOppArena").textContent = "Arena " + oppArena.id + " · " + oppArena.name;
+      if (el("muStatusText")) el("muStatusText").textContent = "Starting race…";
+      showScreen("screen-mp-matchup");
+      setTimeout(function() {
+        if (el("muStatusText")) el("muStatusText").textContent = "Draft race live!";
+        mpBeginRace();
+      }, 2200);
     }
 
     function rankedRenderLeaderboard() {
@@ -4139,6 +4217,7 @@
       mp.myDone = false;
       mp.oppDone = false;
       mp.resultShown = false;
+      mp._matchupShown = false;
       // Grades off for the whole ranked match
       mp.settings = { images: true, grades: false };
       try { mpApplySettings(mp.settings, false); } catch (eS) {}
@@ -4332,6 +4411,13 @@
       mpBind("btnMpLeave", mpLeave);
       mpBind("btnMpHome", function() { mpLeave(); showHome(); });
       mpBind("btnMpViewCard", function() { showScreen("screen-result"); });
+      mpBind("btnMpWaitResend", function() {
+        if (mp.myDone) {
+          mpSend({ t: "done", score: mp.myScore, label: mp.myLabel || "Your Card" });
+          var st = document.getElementById("mpWaitStatus");
+          if (st) st.textContent = "Score resent (" + mp.myScore + "). Waiting for opponent…";
+        }
+      });
       mpBind("btnMpRematch", function() {
         mp.ready = false; mp.oppReady = false; mp.myDone = false; mp.oppDone = false; mp.resultShown = false;
         mpSend({ t: "rematch" }); showScreen("screen-mp-lobby"); mpUpdateLobby();
