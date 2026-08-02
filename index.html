@@ -2045,7 +2045,8 @@
     }
 
     function buildDailyCardQueue(rng) {
-      // Deterministic shuffle of the full pool, then take first 7 unique cards
+      // Deterministic full-pool shuffle — same order for every player this UTC day.
+      // Queue is longer than 7 so skipped cards (no usable remaining stats) never soft-lock the last pick.
       var pool = CARDS.slice();
       for (var i = pool.length - 1; i > 0; i--) {
         var j = Math.floor(rng() * (i + 1));
@@ -2053,7 +2054,7 @@
         pool[i] = pool[j];
         pool[j] = tmp;
       }
-      return pool.slice(0, 7);
+      return pool;
     }
 
     function renderDailyCardList() {
@@ -2066,24 +2067,20 @@
         return;
       }
       if (strip) strip.classList.remove("hidden");
+      // Show the first 7 cards that will be *attempted* as the visible plan,
+      // but highlight based on deals that actually offered a pick.
+      var showN = 7;
       var html = "";
-      var cur = state.dailyIndex || 0; // index of NEXT card; current is cur-1 while awaiting
-      for (var i = 0; i < state.dailyQueue.length; i++) {
-        var c = state.dailyQueue[i];
+      var plan = (state.dailyPlan && state.dailyPlan.length) ? state.dailyPlan : state.dailyQueue.slice(0, showN);
+      for (var i = 0; i < plan.length && i < showN; i++) {
+        var c = plan[i];
         var cls = "daily-card-item";
-        if (state.awaitingPick && state.currentCard && state.currentCard.slug === c.slug) cls += " active";
-        else if (i < (state.dailyIndex || 0) && !(state.awaitingPick && state.currentCard && state.currentCard.slug === c.slug)) {
-          // dealt already
-          if (!state.currentCard || state.currentCard.slug !== c.slug) {
-            if (i < state.dailyIndex - (state.awaitingPick ? 1 : 0)) cls += " done";
-          }
-        }
-        // Simpler: done if already used for a picked stat (in usedSlugs and not current)
-        if (state.usedSlugs && state.usedSlugs.indexOf(c.slug) >= 0) {
-          if (state.currentCard && state.currentCard.slug === c.slug && state.awaitingPick) cls = "daily-card-item active";
-          else cls = "daily-card-item done";
-        } else if (state.currentCard && state.currentCard.slug === c.slug) {
+        if (state.currentCard && state.currentCard.slug === c.slug && state.awaitingPick) {
           cls = "daily-card-item active";
+        } else if (state.dailyPickedSlugs && state.dailyPickedSlugs.indexOf(c.slug) >= 0) {
+          cls = "daily-card-item done";
+        } else if (state.usedSlugs && state.usedSlugs.indexOf(c.slug) >= 0 && !(state.currentCard && state.currentCard.slug === c.slug)) {
+          cls = "daily-card-item done";
         }
         var img = "";
         try {
@@ -2103,20 +2100,65 @@
       else el.classList.remove("show");
     }
 
+    function dailyFilledCount() {
+      var n = 0;
+      for (var i = 0; i < CATEGORIES.length; i++) {
+        if (state.build && state.build[CATEGORIES[i].key]) n++;
+      }
+      return n;
+    }
+
     function dailyDealNext() {
       if (!state.daily) return;
-      if (!state.dailyQueue || state.dailyIndex >= state.dailyQueue.length) {
+
+      // All 7 attributes filled → finish
+      if (dailyFilledCount() >= CATEGORIES.length) {
+        try { showDailySwitchOverlay(false); } catch (e0) {}
         try { finishBuild(); } catch (eF) {}
         return;
       }
-      var card = state.dailyQueue[state.dailyIndex];
-      state.dailyIndex += 1;
+
+      if (!state.dailyQueue || !state.dailyQueue.length) {
+        try { showDailySwitchOverlay(false); } catch (e0) {}
+        try { finishBuild(); } catch (eF) {}
+        return;
+      }
+
+      // Pull next cards until one can offer at least one remaining category
+      var guard = 0;
+      var card = null;
+      while (guard++ < state.dailyQueue.length + 5) {
+        if (state.dailyIndex >= state.dailyQueue.length) {
+          // Exhausted queue with categories still open — should be rare; finish with what we have
+          try { showDailySwitchOverlay(false); } catch (e0) {}
+          try { finishBuild(); } catch (eF) {}
+          return;
+        }
+        var cand = state.dailyQueue[state.dailyIndex];
+        state.dailyIndex += 1;
+        if (!cand) continue;
+        // Skip if already used for a successful pick
+        if (state.dailyPickedSlugs && state.dailyPickedSlugs.indexOf(cand.slug) >= 0) continue;
+        if (availableCategoriesForCard(cand).length > 0) {
+          card = cand;
+          break;
+        }
+        // Card can't help with remaining stats — skip silently (same skip path for all players)
+      }
+
+      if (!card) {
+        try { showDailySwitchOverlay(false); } catch (e0) {}
+        try { finishBuild(); } catch (eF) {}
+        return;
+      }
+
       state.currentCard = card;
       state.spinning = false;
       state.awaitingPick = true;
-      if (card && card.slug && state.usedSlugs.indexOf(card.slug) < 0) {
+      if (card.slug && state.usedSlugs.indexOf(card.slug) < 0) {
         state.usedSlugs.push(card.slug);
       }
+
       try {
         var spinBtn = document.getElementById("spinBtn");
         if (spinBtn) {
@@ -2124,38 +2166,22 @@
           spinBtn.disabled = true;
         }
       } catch (eB) {}
+
+      var pickNum = dailyFilledCount() + 1;
       try {
         var cardEl = document.getElementById("wheelCard");
-        if (cardEl && card) {
+        if (cardEl) {
           cardEl.innerHTML = card.name + '<span class="rarity ' + rarityClass(card.rarity) + '">' + card.rarity + '</span>';
         }
         setWheelVisual(card);
         var label = document.getElementById("categoryLabel");
-        if (label) label.textContent = "Card " + state.dailyIndex + " of 7 — steal a stat";
+        if (label) label.textContent = "Card " + pickNum + " of 7 — steal a stat";
       } catch (eV) {}
+
       try { renderDailyCardList(); } catch (eL) {}
       try { updateRerollButton(); } catch (eR) {}
       try { showStatChoices(card); } catch (eS) {}
       try { showDailySwitchOverlay(false); } catch (eO) {}
-    }
-
-    function dailyAttemptStorageKey() {
-      var day = dailyDateKey();
-      var p = null;
-      try { p = rankedLoadProfile(); } catch (e) {}
-      var u = (p && p.username) ? String(p.username).toLowerCase() : "guest";
-      return "bac-daily-attempt-" + day + "-" + u;
-    }
-
-    function hasUsedDailyAttempt() {
-      try {
-        var v = localStorage.getItem(dailyAttemptStorageKey());
-        return v === "1" || v === "started" || v === "done";
-      } catch (e) { return false; }
-    }
-
-    function markDailyAttemptUsed() {
-      try { localStorage.setItem(dailyAttemptStorageKey(), "done"); } catch (e) {}
     }
 
     function startDailyChallenge() {
@@ -2202,8 +2228,11 @@
         dailyKey: key,
         rng: rng,
         dailyQueue: queue,
+        dailyPlan: queue.slice(0, 7),
         dailyIndex: 0,
-        dailyUsername: profile.username
+        dailyPickedSlugs: [],
+        dailyUsername: profile.username,
+        _finishing: false
       };
       markDailyAttemptUsed();
 
@@ -2351,7 +2380,7 @@
 
     function startGame() {
       try { clearDailyMode(); } catch (e0) {}
-      state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [], rerollsLeft: 1, awaitingPick: false, daily: false, rng: null, dailyKey: null };
+      state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [], rerollsLeft: 1, awaitingPick: false, daily: false, rng: null, dailyKey: null, _finishing: false };
       document.body.classList.remove("daily-challenge");
       try {
         var gOn = document.getElementById("toggleGrades");
@@ -2759,16 +2788,15 @@
         // If this card has nothing useful left, skip it and advance.
         if (!choices.length) {
           if (state.daily) {
-            // Skip to next fixed daily card
+            // This card cannot fill any remaining attribute — pull the next usable card
             state.awaitingPick = false;
             state.currentCard = null;
             try { showDailySwitchOverlay(true); } catch (eO) {}
             setTimeout(function() {
               try { dailyDealNext(); } catch (eN) {
                 try { showDailySwitchOverlay(false); } catch (e2) {}
-                try { finishBuild(); } catch (e3) {}
               }
-            }, 120);
+            }, 80);
             return;
           }
           // Casual / ranked: free this card and require another spin
@@ -2885,6 +2913,11 @@
         source: card.name,
         grade: grade
       };
+
+      if (state.daily && card && card.slug) {
+        if (!state.dailyPickedSlugs) state.dailyPickedSlugs = [];
+        if (state.dailyPickedSlugs.indexOf(card.slug) < 0) state.dailyPickedSlugs.push(card.slug);
+      }
 
       // Disable further clicks
       var container = document.getElementById("statChoices");
@@ -4275,6 +4308,9 @@
     function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
     function finishBuild() {
+      if (state && state._finishing) return;
+      if (state) state._finishing = true;
+      try { showDailySwitchOverlay(false); } catch (eO) {}
       // Always leave the game screen — never get stuck after the last pick
       var score = 50;
       var tier = "C-Tier · Playable";
@@ -4295,7 +4331,7 @@
         var grades = [];
         for (var i = 0; i < CATEGORIES.length; i++) {
           var g = b[CATEGORIES[i].key] && b[CATEGORIES[i].key].grade;
-          grades.push(typeof g === "number" ? g : 5);
+          grades.push((typeof g === "number" && g > 0) ? g : 5);
         }
         var sumG = 0;
         for (var i = 0; i < grades.length; i++) sumG += grades[i];
