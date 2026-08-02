@@ -982,8 +982,12 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       font-size: 13px;
+      pointer-events: none;
     }
-    #dailySwitchOverlay.show { display: flex; }
+    #dailySwitchOverlay.show {
+      display: flex;
+      pointer-events: auto;
+    }
     #dailySwitchOverlay .dso-spin {
       width: 28px; height: 28px; border-radius: 50%;
       border: 3px solid rgba(245,197,66,0.25);
@@ -1062,7 +1066,7 @@
         </p>
         <div class="home-actions">
           <button class="btn btn-primary" id="btnStart" type="button">Start Drafting</button>
-          <button class="btn btn-secondary" id="btnDaily" type="button">Daily Challenge (1/day)</button>
+          <button class="btn btn-secondary" id="btnDaily" type="button" onclick="window.__startDaily && window.__startDaily(event)">Daily Challenge (1/day)</button>
           <button class="btn btn-secondary" id="btnRanked" type="button">Ranked Trophy Road</button>
           <button class="btn btn-secondary" id="btnMp" type="button">1v1 Multiplayer</button>
           <button class="btn btn-secondary" id="btnLeaderboard" type="button">All-Time Leaderboard</button>
@@ -1971,7 +1975,11 @@
     }
     function showHome() {
       try { clearDailyMode(); } catch (eCD) {}
-      rankedClearLock();
+      try {
+        var ov = document.getElementById("dailySwitchOverlay");
+        if (ov) ov.classList.remove("show");
+      } catch (eO) {}
+      try { rankedClearLock(); } catch (eR) {}
       showScreen("screen-home");
     }
 
@@ -2010,6 +2018,11 @@
     }
 
     function clearDailyMode() {
+      try { showDailySwitchOverlay(false); } catch (eOv) {}
+      try {
+        var ov = document.getElementById("dailySwitchOverlay");
+        if (ov) ov.classList.remove("show");
+      } catch (eOv2) {}
       try {
         if (state) {
           state.daily = false;
@@ -2184,13 +2197,48 @@
       try { showDailySwitchOverlay(false); } catch (eO) {}
     }
 
+    
+    function dailyAttemptStorageKey() {
+      var day = dailyDateKey();
+      var p = null;
+      try { p = rankedLoadProfile(); } catch (e) {}
+      var u = (p && p.username) ? String(p.username).toLowerCase() : "guest";
+      return "bac-daily-attempt-" + day + "-" + u;
+    }
+
+    function hasUsedDailyAttempt() {
+      try {
+        var v = localStorage.getItem(dailyAttemptStorageKey());
+        if (v === "1" || v === "done") return true;
+      } catch (e) {}
+      try {
+        var p = rankedLoadProfile();
+        if (!p || !p.username) return false;
+        var list = loadDailyLeaderboard(dailyDateKey()) || [];
+        var u = String(p.username).toLowerCase();
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && String(list[i].label || "").toLowerCase() === u) return true;
+        }
+      } catch (e2) {}
+      return false;
+    }
+
+    function markDailyAttemptUsed() {
+      try { localStorage.setItem(dailyAttemptStorageKey(), "done"); } catch (e) {}
+    }
+
     function startDailyChallenge() {
+      try { showDailySwitchOverlay(false); } catch (eOv) {}
+      try {
+        var ov0 = document.getElementById("dailySwitchOverlay");
+        if (ov0) ov0.classList.remove("show");
+      } catch (eOv2) {}
       if (typeof mp !== "undefined") {
         try { mp.active = false; mp.ranked = false; } catch (eM) {}
       }
 
       var profile = null;
-      try { profile = rankedLoadProfile(); } catch (eP) {}
+      try { profile = rankedLoadProfile(); } catch (eP) { profile = null; }
       if (!profile || !profile.username) {
         alert("Daily Challenge uses your ranked username on the leaderboard.\n\nCreate a ranked username first, then try again.");
         try { rankedShowScreen(); } catch (eR) {
@@ -2199,7 +2247,7 @@
         return;
       }
 
-      if (hasUsedDailyAttempt()) {
+      if (typeof hasUsedDailyAttempt === "function" && hasUsedDailyAttempt()) {
         alert("You've already used today's Daily Challenge attempt.\n\nCome back after UTC midnight for a new day.");
         try {
           lastLbMode = "daily";
@@ -2232,9 +2280,10 @@
         dailyIndex: 0,
         dailyPickedSlugs: [],
         dailyUsername: profile.username,
-        _finishing: false
+        _finishing: false,
+        dailyAttemptPending: true
       };
-      markDailyAttemptUsed();
+      // Attempt is committed when the run finishes (not on open), so a glitch can't lock the button forever
 
       document.body.classList.add("daily-challenge");
       document.body.classList.remove("show-grades");
@@ -2251,7 +2300,13 @@
       try { updateRerollButton(); } catch (eR) {}
       showScreen("screen-game");
       try { renderDailyCardList(); } catch (eL0) {}
-      dailyDealNext();
+      try {
+        dailyDealNext();
+      } catch (eDeal) {
+        console.error(eDeal);
+        alert("Daily Challenge failed to deal cards: " + (eDeal && eDeal.message ? eDeal.message : eDeal));
+        try { showHome(); } catch (eH) {}
+      }
     }
 
     function loadDailyLeaderboard(dateKey) {
@@ -6360,9 +6415,22 @@
 
       
       var btnDaily = document.getElementById("btnDaily");
-      if (btnDaily) btnDaily.addEventListener("click", function() {
-        if (typeof mp !== "undefined") mp.active = false;
-        startDailyChallenge();
+      if (btnDaily) btnDaily.addEventListener("click", function(ev) {
+        try {
+          if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+          try { showDailySwitchOverlay(false); } catch (e0) {}
+          try {
+            var ov = document.getElementById("dailySwitchOverlay");
+            if (ov) ov.classList.remove("show");
+          } catch (e1) {}
+          if (typeof mp !== "undefined") {
+            try { mp.active = false; } catch (e2) {}
+          }
+          startDailyChallenge();
+        } catch (err) {
+          console.error("Daily Challenge start failed", err);
+          alert("Could not start Daily Challenge: " + (err && err.message ? err.message : err));
+        }
       });
       document.querySelectorAll("[data-lbmode]").forEach(function(btn) {
         btn.addEventListener("click", function() {
