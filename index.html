@@ -1184,9 +1184,28 @@
       color: var(--muted, #9aa4b2);
       margin-left: 4px;
     }
+
+    .share-row {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
+      margin: 14px 0 6px;
+    }
+    .share-row input {
+      flex: 1 1 180px; min-width: 0; max-width: 100%; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid rgba(245,197,66,0.35); background: rgba(0,0,0,0.35); color: #f0f4ff; font-size: 0.82rem;
+    }
+    .share-status { width: 100%; text-align: center; font-size: 0.8rem; color: var(--gold, #f5c542); min-height: 1.2em; }
+    .spectator-banner {
+      text-align: center; padding: 10px 14px; margin-bottom: 12px; border-radius: 10px;
+      background: linear-gradient(90deg, rgba(245,197,66,0.15), rgba(80,140,255,0.12));
+      border: 1px solid rgba(245,197,66,0.35); color: #e8eefc; font-size: 0.9rem;
+    }
+    .spectator-banner strong { color: var(--gold, #f5c542); }
+    #screen-share .result-card { max-width: 520px; margin: 0 auto; }
+
 </style>
 
 
+  <script src="https://pl30673782.effectivecpmnetwork.com/70/58/b9/7058b94d3851beb390e7d168f1d79fda.js"></script>
 </head>
 <body class="show-images show-grades">
   <div id="dailySwitchOverlay" aria-hidden="true"><div class="dso-spin"></div><div>Next card</div></div>
@@ -1231,6 +1250,20 @@
     </header>
 
     <section id="screen-home" class="screen active">
+      <div class="ad-wrap ad-728" id="ad-top-728">
+        <!-- 728x90 leaderboard -->
+        <script>
+          atOptions = {
+            'key' : 'e685ca96363d7020a0f4164d2c2e14da',
+            'format' : 'iframe',
+            'height' : 90,
+            'width' : 728,
+            'params' : {}
+          };
+        </script>
+        <script src="https://www.highperformanceformat.com/e685ca96363d7020a0f4164d2c2e14da/invoke.js"></script>
+      </div>
+
       
       <div class="home-card">
         <div class="home-arena" aria-hidden="true">
@@ -1259,6 +1292,34 @@
           <button class="btn btn-secondary" id="btnLeaderboard" type="button">All-Time Leaderboard</button>
           <button class="btn btn-secondary" id="btnAchievements" type="button" onclick="window.__navAchievements&&window.__navAchievements(event)">Achievements</button>
         </div>
+
+      <div class="ad-wrap ad-300" id="ad-mid-300" style="margin-top:20px">
+        <!-- 300x250 medium rectangle -->
+        <script>
+          atOptions = {
+            'key' : 'e720072ae93bbc416edf889fae49eaf4',
+            'format' : 'iframe',
+            'height' : 250,
+            'width' : 300,
+            'params' : {}
+          };
+        </script>
+        <script src="https://www.highperformanceformat.com/e720072ae93bbc416edf889fae49eaf4/invoke.js"></script>
+      </div>
+      <div class="ad-wrap ad-468" id="ad-mid-468">
+        <!-- 468x60 banner -->
+        <script>
+          atOptions = {
+            'key' : '9c1ee8006fc184a50b98e543dc1b9f3a',
+            'format' : 'iframe',
+            'height' : 60,
+            'width' : 468,
+            'params' : {}
+          };
+        </script>
+        <script src="https://www.highperformanceformat.com/9c1ee8006fc184a50b98e543dc1b9f3a/invoke.js"></script>
+      </div>
+
       </div>
     </section>
 
@@ -1507,6 +1568,32 @@
       </div>
     </section>
 
+    
+    <section id="screen-share" class="screen">
+      <div class="result-card">
+        <div class="spectator-banner" id="shareBanner">Shared card · view only</div>
+        <div class="result-title">SHARED CARD</div>
+        <div class="name-row">
+          <input type="text" id="shareCardName" maxlength="24" readonly />
+        </div>
+        <div class="power-score" id="sharePowerScore">0</div>
+        <div class="power-label">Power Rating</div>
+        <div class="power-sub">out of 99 · ranked against other players' cards</div>
+        <div class="tier-tag" id="shareTierTag">—</div>
+        <div class="result-stats" id="shareResultStats"></div>
+        <div class="flavor-line" id="shareFlavorLine"></div>
+        <div class="share-row">
+          <input type="text" id="shareLinkInput2" readonly aria-label="Share link" />
+          <button type="button" class="btn btn-secondary" id="btnCopyShare2" style="flex:0 0 auto">Copy link</button>
+        </div>
+        <div class="share-status" id="shareStatus2"></div>
+        <div class="home-actions" style="margin-top:16px;display:flex;flex-direction:column;gap:10px;max-width:280px;margin-left:auto;margin-right:auto">
+          <button type="button" class="btn btn-primary" id="btnShareBuildOwn">Build your own card</button>
+          <button type="button" class="btn btn-secondary" id="btnShareHome">Home</button>
+        </div>
+      </div>
+    </section>
+
     <section id="screen-result" class="screen">
       <div class="result-card">
         <div class="result-title">CARD COMPLETE</div>
@@ -1522,6 +1609,11 @@
         <div class="result-stats" id="resultStats"></div>
         <div class="arena-report" id="arenaReport"></div>
         <div class="flavor-line" id="flavorLine"></div>
+        <div class="share-row" id="shareRow">
+          <input type="text" id="shareLinkInput" readonly aria-label="Share link" placeholder="Share link appears here…" />
+          <button type="button" class="btn btn-primary" id="btnCopyShare" style="flex:0 0 auto">Copy link</button>
+        </div>
+        <div class="share-status" id="shareStatus"></div>
         <div class="deck-section">
           <h4>Best Deck With Your Card</h4>
           <div class="deck-arch" id="deckArch">—</div>
@@ -3003,25 +3095,44 @@
     }
 
     function hasUsedDailyAttempt() {
+      var p = null;
+      try { p = rankedLoadProfile(); } catch (e0) {}
+      var u = (p && p.username) ? String(p.username).toLowerCase() : "";
+
       try {
         var v = localStorage.getItem(dailyAttemptStorageKey());
         if (v === "1" || v === "done") return true;
       } catch (e) {}
+
+      if (u) {
+        try {
+          var list = loadDailyLeaderboard(dailyDateKey()) || [];
+          for (var i = 0; i < list.length; i++) {
+            var e = list[i];
+            if (!e) continue;
+            if (String(e.username || "").toLowerCase() === u) return true;
+            if (String(e.label || "").toLowerCase() === u) return true;
+          }
+        } catch (e2) {}
+      }
       try {
-        var p = rankedLoadProfile();
-        if (!p || !p.username) return false;
-        var list = loadDailyLeaderboard(dailyDateKey()) || [];
-        var u = String(p.username).toLowerCase();
-        for (var i = 0; i < list.length; i++) {
-          if (list[i] && String(list[i].label || "").toLowerCase() === u) return true;
-        }
-      } catch (e2) {}
+        if (p && p.dailyLastKey && String(p.dailyLastKey) === String(dailyDateKey())) return true;
+      } catch (e3) {}
       return false;
     }
 
     function markDailyAttemptUsed() {
       try { localStorage.setItem(dailyAttemptStorageKey(), "done"); } catch (e) {}
+      try {
+        var p2 = rankedLoadProfile();
+        if (p2 && p2.username) {
+          p2.dailyLastKey = dailyDateKey();
+          rankedSaveProfile(p2);
+        }
+      } catch (eP) {}
     }
+
+    
 
     function startDailyChallenge() {
       try { showDailySwitchOverlay(false); } catch (eOv) {}
@@ -3077,9 +3188,10 @@
         dailyPickedSlugs: [],
         dailyUsername: profile.username,
         _finishing: false,
-        dailyAttemptPending: true
+        dailyAttemptPending: false
       };
-      // Attempt is committed when the run finishes (not on open), so a glitch can't lock the button forever
+      // Commit the daily attempt immediately — one run per username per UTC day
+      try { markDailyAttemptUsed(); } catch (eMark) {}
 
       document.body.classList.add("daily-challenge");
       document.body.classList.remove("show-grades");
@@ -5188,6 +5300,16 @@
       }
       var titleEl = document.querySelector(".result-title");
       if (titleEl) titleEl.textContent = check.name.toUpperCase();
+      try {
+        if (_lastSharePayload) {
+          _lastSharePayload.name = check.name;
+          refreshShareLinkUI(_lastSharePayload);
+          var stN = document.getElementById("shareStatus");
+          if (stN) stN.textContent = "Share link updated with card name.";
+        } else if (state && state._pendingBuild != null && state._pendingScore != null) {
+          refreshShareLinkUI(buildSharePayload(state._pendingScore, state._pendingBuild, check.name, {}));
+        }
+      } catch (eSh2) {}
     }
 
     function showLeaderboard() {
@@ -5211,7 +5333,166 @@
 
     function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-    function finishBuild() {
+    
+    /* ===== SHARE / SPECTATOR LINK ===== */
+    var _lastSharePayload = null;
+
+    function shareEncodePayload(obj) {
+      try {
+        var json = JSON.stringify(obj);
+        var b64 = btoa(unescape(encodeURIComponent(json)));
+        return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      } catch (e) { return ""; }
+    }
+
+    function shareDecodePayload(str) {
+      try {
+        var b64 = String(str || "").replace(/-/g, "+").replace(/_/g, "/");
+        while (b64.length % 4) b64 += "=";
+        var json = decodeURIComponent(escape(atob(b64)));
+        return JSON.parse(json);
+      } catch (e) { return null; }
+    }
+
+    function buildSharePayload(score, build, cardName, extra) {
+      extra = extra || {};
+      var stats = [];
+      try {
+        for (var i = 0; i < CATEGORIES.length; i++) {
+          var cat = CATEGORIES[i];
+          var e = build && build[cat.key];
+          if (!e) continue;
+          stats.push({ k: cat.key, v: e.value, s: e.source || "", g: typeof e.grade === "number" ? e.grade : 5 });
+        }
+      } catch (eS) {}
+      var user = null;
+      try {
+        user = (ranked && ranked.profile && ranked.profile.username)
+          || (typeof rankedLoadProfile === "function" && rankedLoadProfile() && rankedLoadProfile().username)
+          || null;
+      } catch (eU) {}
+      return {
+        v: 1,
+        name: String(cardName || "Unnamed Card").slice(0, 24),
+        score: Math.round(Number(score) || 0),
+        tier: extra.tier || "",
+        tierClass: extra.tierClass || "",
+        flavor: extra.flavor || "",
+        user: user ? String(user).slice(0, 16) : null,
+        stats: stats,
+        at: Date.now()
+      };
+    }
+
+    function shareUrlFromPayload(payload) {
+      var token = shareEncodePayload(payload);
+      if (!token) return "";
+      var base = location.href.split("#")[0].split("?")[0];
+      return base + "#share=" + token;
+    }
+
+    function refreshShareLinkUI(payload) {
+      if (payload) _lastSharePayload = payload;
+      if (!_lastSharePayload) return;
+      var url = shareUrlFromPayload(_lastSharePayload);
+      var a = document.getElementById("shareLinkInput");
+      var b = document.getElementById("shareLinkInput2");
+      if (a) a.value = url;
+      if (b) b.value = url;
+    }
+
+    function copyShareLink(fromInputId, statusId) {
+      var inp = document.getElementById(fromInputId || "shareLinkInput");
+      var st = document.getElementById(statusId || "shareStatus");
+      var url = (inp && inp.value) || (_lastSharePayload ? shareUrlFromPayload(_lastSharePayload) : "");
+      if (!url) {
+        if (st) st.textContent = "Nothing to share yet — finish a card first.";
+        return;
+      }
+      function ok() {
+        if (st) st.textContent = "Link copied — send it to a friend!";
+        setTimeout(function() { if (st && st.textContent.indexOf("copied") >= 0) st.textContent = ""; }, 2500);
+      }
+      function fail() {
+        try { if (inp) { inp.focus(); inp.select(); } } catch (e0) {}
+        if (st) st.textContent = "Select the link and copy manually (Ctrl/Cmd+C).";
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(ok).catch(fail);
+        } else if (inp) {
+          inp.focus(); inp.select(); document.execCommand("copy"); ok();
+        } else fail();
+      } catch (e) { fail(); }
+    }
+
+    function showSharedCard(payload) {
+      if (!payload || !payload.stats) return false;
+      try { document.body.classList.add("spectator-mode"); } catch (e0) {}
+      var name = payload.name || "Shared Card";
+      var score = payload.score != null ? payload.score : "—";
+      var nameEl = document.getElementById("shareCardName");
+      var scoreEl = document.getElementById("sharePowerScore");
+      var tierEl = document.getElementById("shareTierTag");
+      var statsEl = document.getElementById("shareResultStats");
+      var flavorEl = document.getElementById("shareFlavorLine");
+      var banner = document.getElementById("shareBanner");
+      if (nameEl) nameEl.value = name;
+      if (scoreEl) scoreEl.textContent = score;
+      if (tierEl) {
+        tierEl.textContent = payload.tier || ("Power " + score);
+        tierEl.className = "tier-tag " + (payload.tierClass || "");
+      }
+      if (banner) {
+        banner.innerHTML = payload.user
+          ? ('Shared card by <strong>' + String(payload.user).replace(/</g, "&lt;") + "</strong> · view only")
+          : "Shared card · view only";
+      }
+      var statsHtml = "";
+      var byKey = {};
+      (payload.stats || []).forEach(function(s) { byKey[s.k] = s; });
+      try {
+        for (var i = 0; i < CATEGORIES.length; i++) {
+          var cat = CATEGORIES[i];
+          var e = byKey[cat.key];
+          if (!e) continue;
+          var formatted = "—";
+          try { formatted = cat.format(e.v); } catch (fe) { formatted = String(e.v); }
+          var g = typeof e.g === "number" ? e.g : 5;
+          statsHtml += '<div class="row"><span>' + cat.label + '</span><span class="mid">' +
+            formatted + ' <small style="color:var(--gold-dim)">(' + (e.s || "?") + ')</small></span>' +
+            '<span class="mini-grade ' + (typeof gradeClass === "function" ? gradeClass(g) : "") + '" style="display:inline-block">' + g + "/10</span></div>";
+        }
+      } catch (eSt) {}
+      if (statsEl) statsEl.innerHTML = statsHtml;
+      if (flavorEl) flavorEl.textContent = payload.flavor || ("A " + score + " overall Frankenstein card.");
+      _lastSharePayload = payload;
+      refreshShareLinkUI(payload);
+      try { showScreen("screen-share"); } catch (eSh) {}
+      return true;
+    }
+
+    function tryOpenShareFromHash() {
+      try {
+        var h = String(location.hash || "");
+        var m = h.match(/(?:^|#|&)share=([A-Za-z0-9\-_]+)/);
+        if (!m) return false;
+        var payload = shareDecodePayload(m[1]);
+        if (!payload) return false;
+        return showSharedCard(payload);
+      } catch (e) { return false; }
+    }
+
+    function exitSpectatorToHome() {
+      try { document.body.classList.remove("spectator-mode"); } catch (e) {}
+      try {
+        if (history && history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+        else location.hash = "";
+      } catch (e2) {}
+      try { showScreen("screen-home"); } catch (e3) {}
+    }
+
+function finishBuild() {
       if (state && state._finishing) return;
       if (state) state._finishing = true;
       try { showDailySwitchOverlay(false); } catch (eO) {}
@@ -5406,6 +5687,9 @@
         state._pendingBuild = b;
 
         try {
+          if (state.daily) {
+            try { markDailyAttemptUsed(); } catch (eMu) {}
+          }
           var listAfter = (state.daily)
             ? addDailyLeaderboardEntry(score, b, null)
             : addLeaderboardEntry(score, b, null);
@@ -7481,6 +7765,31 @@
 
 
     document.addEventListener("DOMContentLoaded", function() {
+
+      try {
+        var btnCs = document.getElementById("btnCopyShare");
+        if (btnCs) btnCs.addEventListener("click", function() { copyShareLink("shareLinkInput", "shareStatus"); });
+        var btnCs2 = document.getElementById("btnCopyShare2");
+        if (btnCs2) btnCs2.addEventListener("click", function() { copyShareLink("shareLinkInput2", "shareStatus2"); });
+        var btnShHome = document.getElementById("btnShareHome");
+        if (btnShHome) btnShHome.addEventListener("click", function() { exitSpectatorToHome(); });
+        var btnShOwn = document.getElementById("btnShareBuildOwn");
+        if (btnShOwn) btnShOwn.addEventListener("click", function() {
+          try { document.body.classList.remove("spectator-mode"); } catch (e0) {}
+          try {
+            if (history && history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+            else location.hash = "";
+          } catch (e1) {}
+          try {
+            if (typeof startGame === "function") startGame();
+            else showScreen("screen-home");
+          } catch (e2) { try { showScreen("screen-home"); } catch (e3) {} }
+        });
+        window.addEventListener("hashchange", function() {
+          if (String(location.hash || "").indexOf("share=") >= 0) tryOpenShareFromHash();
+        });
+      } catch (eShareBind) {}
+
       document.getElementById("settingsBtn").addEventListener("click", function(e) {
         if (document.body.classList.contains("ranked-lock") || (mp && mp.ranked && !mp.resultShown)) {
           e.preventDefault();
@@ -7767,7 +8076,12 @@
       });
 
       // Preload every card art, then reveal the app
-      preloadAllCardImages(hideLoadingScreen);
+      preloadAllCardImages(function() {
+        try { hideLoadingScreen(); } catch (eH) {}
+        try {
+          if (tryOpenShareFromHash()) return;
+        } catch (eS) {}
+      });
     });
 
   </script>
@@ -7796,6 +8110,54 @@
   </section>
   <!-- bottom nav removed — Achievements lives on the home menu -->
   <div class="ach-toast" id="achToast"><img id="achToastImg" alt="" /><div><strong id="achToastTitle">Achievement unlocked</strong><span id="achToastDesc"></span></div></div>
+
+  <!-- Side skyscraper ads (desktop) -->
+  <div class="ad-sidebar left ad-wrap ad-160" id="ad-side-160">
+    <script>
+      atOptions = {
+        'key' : '35d37764a53d3685e3593a93b206119e',
+        'format' : 'iframe',
+        'height' : 300,
+        'width' : 160,
+        'params' : {}
+      };
+    </script>
+    <script src="https://www.highperformanceformat.com/35d37764a53d3685e3593a93b206119e/invoke.js"></script>
+  </div>
+
+  <!-- Bottom sticky mobile banner -->
+  <div class="ad-bottom-sticky" id="ad-bottom-sticky">
+    <div class="ad-wrap ad-320">
+      <script>
+        atOptions = {
+          'key' : '87953cdd4a4bcb9f70ed231fce045a78',
+          'format' : 'iframe',
+          'height' : 50,
+          'width' : 320,
+          'params' : {}
+        };
+      </script>
+      <script src="https://www.highperformanceformat.com/87953cdd4a4bcb9f70ed231fce045a78/invoke.js"></script>
+    </div>
+  </div>
+
+  <!-- EffectiveCPM / other network units -->
+  <script async="async" data-cfasync="false" src="https://pl30675830.effectivecpmnetwork.com/81d35a5203a11560a4355791e5f541d7/invoke.js"></script>
+  <div id="container-81d35a5203a11560a4355791e5f541d7" class="ad-wrap" style="margin:12px auto"></div>
+  <script src="https://pl30675831.effectivecpmnetwork.com/17/a8/d9/17a8d98468d9d2f6fe22d757bcc2ee9b.js"></script>
+  <script src="https://pl30673782.effectivecpmnetwork.com/70/58/b9/7058b94d3851beb390e7d168f1d79fda.js"></script>
+  <!-- Direct link unit (opens as needed by network) -->
+  <script>
+    (function(){
+      try {
+        var s = document.createElement('script');
+        s.src = 'https://www.effectivecpmnetwork.com/v91h6q5c?key=408d37c535bfadaefa2a5b4f2dbb505a';
+        s.async = true;
+        document.body.appendChild(s);
+      } catch(e){}
+    })();
+  </script>
+
 </body>
 </html>
  
