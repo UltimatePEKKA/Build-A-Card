@@ -2080,16 +2080,32 @@
     function cardImageCandidates(card) {
       var s = card.slug || "knight";
       var list = [];
-      // Public mirrors that work from browser when online
+      // Prefer small 150px assets first (faster over network)
       list.push("https://royaleapi.github.io/cr-api-assets/cards-150/" + s + ".png");
       list.push("https://cdn.jsdelivr.net/gh/RoyaleAPI/cr-api-assets@master/cards-150/" + s + ".png");
       list.push("https://royaleapi.github.io/cr-api-assets/cards/" + s + ".png");
       list.push("https://cdn.jsdelivr.net/gh/RoyaleAPI/cr-api-assets@master/cards/" + s + ".png");
-      // Official Supercell assets (from Clash Royale API)
       if (card.img) list.push(card.img);
-      // Local folder if user ran download-cards.sh
       list.push("cards/" + s + ".png");
       return list;
+    }
+
+    // slug -> { url, img } for instant wheel paints
+    var ART_CACHE = {};
+
+    function getCachedArt(card) {
+      if (!card) return null;
+      if (card._resolvedImg) return card._resolvedImg;
+      if (card.slug && ART_CACHE[card.slug] && ART_CACHE[card.slug].url) return ART_CACHE[card.slug].url;
+      return null;
+    }
+
+    function rememberArt(card, url, imgEl) {
+      if (!card || !url) return;
+      card._resolvedImg = url;
+      if (card.slug) {
+        ART_CACHE[card.slug] = { url: url, img: imgEl || (ART_CACHE[card.slug] && ART_CACHE[card.slug].img) || null };
+      }
     }
 
     function setWheelVisual(card) {
@@ -2108,19 +2124,52 @@
       }
       fallback.textContent = card.name.charAt(0);
       fallback.style.background = rarityColor(card.rarity);
+
+      var cached = getCachedArt(card);
+      // Instant path: already decoded in browser cache
+      if (cached) {
+        if (img.src !== cached) {
+          img.referrerPolicy = "no-referrer";
+          img.src = cached;
+        }
+        // Show immediately if complete; otherwise brief wait without blanking
+        if (img.complete && img.naturalWidth > 0) {
+          img.style.display = "block";
+          fallback.style.display = "none";
+        } else {
+          fallback.style.display = "flex";
+          img.style.display = "none";
+          img.onload = function() {
+            img.style.display = "block";
+            fallback.style.display = "none";
+            rememberArt(card, cached, img);
+          };
+          img.onerror = function() {
+            // Stale cache entry — fall through to candidates
+            try { delete card._resolvedImg; } catch (e0) {}
+            if (card.slug) try { delete ART_CACHE[card.slug]; } catch (e1) {}
+            setWheelVisualUncached(card, img, fallback);
+          };
+        }
+        return;
+      }
+      setWheelVisualUncached(card, img, fallback);
+    }
+
+    function setWheelVisualUncached(card, img, fallback) {
+      if (!img || !fallback) {
+        img = document.getElementById("wheelImg");
+        fallback = document.getElementById("wheelFallback");
+      }
+      if (!img || !fallback) return;
       fallback.style.display = "flex";
       img.style.display = "none";
-
-      // Use already-preloaded URL when available (instant)
-      var urls = [];
-      if (card._resolvedImg) urls.push(card._resolvedImg);
-      cardImageCandidates(card).forEach(function(u) {
-        if (urls.indexOf(u) < 0) urls.push(u);
-      });
+      var urls = cardImageCandidates(card);
       var i = 0;
       img.onload = function() {
         img.style.display = "block";
         fallback.style.display = "none";
+        rememberArt(card, urls[i] || img.src, img);
       };
       img.onerror = function() {
         i += 1;
@@ -2132,8 +2181,9 @@
         }
       };
       img.referrerPolicy = "no-referrer";
-      img.src = urls[0];
+      if (urls.length) img.src = urls[0];
     }
+
 
     var state = { currentCategoryIndex: 0, build: {}, currentCard: null, spinning: false, usedSlugs: [], rerollsLeft: 1, awaitingPick: false };
 
@@ -2362,6 +2412,12 @@
         badge: "https://cdn.statsroyale.com/images/badges/creator.png",
         special: true,
         grantOnly: ["developer", "ultimatepekka"]
+      },
+      {
+        id: "og_founder",
+        title: "OG Founder",
+        desc: "One of the first players to make an account — early Build-A-Card pioneer.",
+        badge: "https://royaleapi.github.io/cr-api-assets/badges/Diamond_03.png"
       },
       {
         id: "pekka_mastery",
@@ -3429,13 +3485,18 @@
       var cardEl = document.getElementById("wheelCard");
       display.classList.add("spinning");
       var ticks = 0;
-      var maxTicks = 18 + Math.floor(((state.daily && state.rng) ? state.rng() : Math.random()) * 10);
+      var maxTicks = 12 + Math.floor(((state.daily && state.rng) ? state.rng() : Math.random()) * 6);
+      var lastSpinSlug = null;
       var interval = setInterval(function() {
         var random = randomAvailableCard();
         if (random) {
           try {
             cardEl.innerHTML = random.name + '<span class="rarity ' + rarityClass(random.rarity) + '">' + random.rarity + '</span>';
-            setWheelVisual(random);
+            // Only swap art when the slug changes (avoids reloading same image)
+            if (random.slug !== lastSpinSlug) {
+              lastSpinSlug = random.slug;
+              setWheelVisual(random);
+            }
           } catch (eTick) {}
         }
         ticks++;
@@ -3461,7 +3522,7 @@
             document.getElementById("spinBtn").disabled = false;
             return;
           }
-          setTimeout(function() { showStatChoices(final); }, 30);
+          setTimeout(function() { showStatChoices(final); }, 32);
         }
       }, 70);
     }
@@ -5448,31 +5509,53 @@
           if (finished <= CARDS.length) pct.textContent = p + "% · " + Math.min(finished, CARDS.length) + "/" + CARDS.length + " cards";
           else pct.textContent = p + "% · badges " + (finished - CARDS.length) + "/" + badgeUrls.length;
         }
-        if (finished >= total) setTimeout(done, 280);
+        if (finished >= total) setTimeout(done, 120);
       }
       CARDS.forEach(function(card) {
         var urls = [];
         try {
           if (typeof artUrlForSlug === "function") {
-            var u = artUrlForSlug(card.slug);
-            if (u) urls.push(u);
+            var raw = artUrlForSlug(card.slug, card.role || "normal");
+            if (Array.isArray(raw)) {
+              for (var ri = 0; ri < raw.length; ri++) urls.push(raw[ri]);
+            } else if (raw) {
+              urls.push(raw);
+            }
           }
         } catch (e) {}
+        try {
+          var cands = cardImageCandidates(card);
+          for (var ci = 0; ci < cands.length; ci++) {
+            if (urls.indexOf(cands[ci]) < 0) urls.push(cands[ci]);
+          }
+        } catch (e2) {}
+        // Prefer 150px CDN first for speed
+        urls.sort(function(a, b) {
+          var as = a.indexOf("cards-150") >= 0 ? 0 : 1;
+          var bs = b.indexOf("cards-150") >= 0 ? 0 : 1;
+          return as - bs;
+        });
         if (!urls.length) { tick(); return; }
         var idxu = 0;
         var img = new Image();
-        img.onload = function() { tick(); };
+        img.decoding = "async";
+        img.onload = function() {
+          rememberArt(card, urls[idxu] || img.src, img);
+          tick();
+        };
         img.onerror = function() {
           idxu += 1;
           if (idxu < urls.length) img.src = urls[idxu];
           else tick();
         };
+        img.referrerPolicy = "no-referrer";
         img.src = urls[0];
       });
       badgeUrls.forEach(function(url) {
         var img = new Image();
         img.onload = function() { tick(); };
         img.onerror = function() { tick(); };
+        img.referrerPolicy = "no-referrer";
         img.src = url;
       });
     }
@@ -6384,6 +6467,20 @@
       return cur;
     }
 
+        function rankedGrantOgIfLegacy(p) {
+      if (!p || !p.username) return p;
+      if (p._ogGranted) return p;
+      // Accounts that existed before OG badge shipped
+      var ship = Date.UTC(2026, 7, 4, 3, 0, 0); // 2026-08-04 03:00 UTC
+      var created = Number(p.created) || 0;
+      if (!p.created || created < ship) {
+        try { unlockAchievement("og_founder"); } catch (eU) {}
+      }
+      p._ogGranted = true;
+      try { localStorage.setItem(RANKED_PROFILE_KEY, JSON.stringify(p)); } catch (eS) {}
+      return p;
+    }
+
     function rankedLoadProfile() {
       try {
         var raw = localStorage.getItem(RANKED_PROFILE_KEY);
@@ -6395,6 +6492,7 @@
         p.losses = Number(p.losses) || 0;
         if (!Array.isArray(p.equippedBadges)) p.equippedBadges = [];
         try { p = applySpecialAccountPerks(p); } catch (eP) {}
+        try { p = rankedGrantOgIfLegacy(p); } catch (eOg) {}
         return p;
       } catch (e) { return null; }
     }
@@ -6742,7 +6840,8 @@
           wins: 0,
           losses: 0,
           created: Date.now(),
-          updated: Date.now()
+          updated: Date.now(),
+          _ogGranted: true
         };
         ranked.profile = p;
         try { localStorage.setItem(RANKED_PROFILE_KEY, JSON.stringify(p)); } catch (e2) {}
