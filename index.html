@@ -1177,12 +1177,20 @@
     img.equip-badge, .ach-card img, .player-badges img, .rb-badges img {
       cursor: help;
     }
+
+    .lb-by {
+      font-weight: 500;
+      font-size: 0.85em;
+      color: var(--muted, #9aa4b2);
+      margin-left: 4px;
+    }
 </style>
+
 
 </head>
 <body class="show-images show-grades">
   <div id="dailySwitchOverlay" aria-hidden="true"><div class="dso-spin"></div><div>Next card</div></div>
-  <div class="version-badge" aria-hidden="true">V 1.2</div>
+  <div class="version-badge" aria-hidden="true">V 1.3</div>
   <div id="loadingScreen">
     <div class="load-logo">BUILD-A-CARD</div>
     <div class="load-msg">Welcome to Build-A-Card</div>
@@ -1556,6 +1564,8 @@
     <footer>Built by UltimatePEKKA · Fan-made, not affiliated with Supercell</footer>
   </div>
   <script>
+    try { if (history && history.scrollRestoration) history.scrollRestoration = "manual"; } catch (eSR) {}
+
 
     const CARDS = [
       { name: "Knight", slug: "knight", rarity: "Common", hp: 1500, dmg: 160, hitSpeed: 1.2, range: "Melee", speed: "Medium", elixir: 3, special: "Balanced melee",
@@ -1804,59 +1814,61 @@
       var t = (s || "").toLowerCase();
       if (!t || t.indexOf("no evo") >= 0 || t.indexOf("no special") >= 0 || t === "none" || t === "evo" || t === "champ") return 3;
 
-      // ===== 10/10 (exactly 3) =====
-      if (t.indexOf("anywhere on the map") >= 0) return 10; // Miner
-      if (t.indexOf("surfaces under") >= 0) return 10; // Goblin Drill
-      if (t.indexOf("level up mid-fight") >= 0 || t.indexOf("spend elixir to level") >= 0) return 10; // Hero Mini P.E.K.K.A
+      // From card-grades-balance update.xlsx — Special Scores sheet
 
-      // ===== 9/10 (5) =====
-      if (t.indexOf("skeleton army") >= 0 || t.indexOf("collects souls") >= 0) return 9;
+      // 10/10
+      if (t.indexOf("anywhere on the map") >= 0) return 10;
+      if (t.indexOf("surfaces under") >= 0) return 10;
+      if (t.indexOf("level up mid-fight") >= 0 || t.indexOf("spend elixir to level") >= 0) return 10;
+
+      // 9/10
       if (t.indexOf("cloaks and fires") >= 0 || t.indexOf("rapid volley") >= 0) return 9;
-      if (t.indexOf("spawns skeletons and heals") >= 0) return 9;
+      if (t.indexOf("collects souls") >= 0 || t.indexOf("skeleton army") >= 0) return 9;
       if (t.indexOf("hooks an enemy") >= 0) return 9;
+      if (t.indexOf("spawns skeletons and heals") >= 0) return 9;
       if (t.indexOf("stuns on spawn") >= 0) return 9;
 
-      // ===== 8/10 (5) =====
+      // 8/10
       if (t.indexOf("dashes in a chain") >= 0) return 8;
+      if (t.indexOf("long-range shots") >= 0) return 8;
+      if (t.indexOf("invisible until") >= 0) return 8;
       if (t.indexOf("reflects enemy") >= 0) return 8;
       if (t.indexOf("less damage while moving") >= 0) return 8;
-      if (t.indexOf("invisible until") >= 0) return 8;
-      if (t.indexOf("long-range shots") >= 0) return 8;
 
-      // ===== 7/10 (5) =====
-      if (t.indexOf("drills underground") >= 0) return 7;
+      // 7/10
       if (t.indexOf("pull nearby") >= 0 || t.indexOf("pulls nearby") >= 0) return 7;
-      if (t.indexOf("knock the target toward") >= 0) return 7;
-      if (t.indexOf("dashes through") >= 0 || (t.indexOf("dash") >= 0 && t.indexOf("first target") >= 0)) return 7;
       if (t.indexOf("curses troops") >= 0) return 7;
+      if (t.indexOf("dashes through") >= 0 || (t.indexOf("dash") >= 0 && t.indexOf("first target") >= 0 && t.indexOf("chain") < 0)) return 7;
+      if (t.indexOf("drills underground") >= 0) return 7;
+      if (t.indexOf("knock the target toward") >= 0) return 7;
 
-      // ===== 6/10 (5) =====
-      if (t.indexOf("spawns bats") >= 0) return 6;
-      if (t.indexOf("snares the first") >= 0) return 6;
-      if (t.indexOf("respawns from an egg") >= 0) return 6;
-      if (t.indexOf("summons a guardian") >= 0) return 6;
+      // 6/10
       if (t.indexOf("bonus damage to far") >= 0) return 6;
+      if (t.indexOf("spawns bats") >= 0 || t.indexOf("periodically spawns bats") >= 0) return 6;
+      if (t.indexOf("respawns from an egg") >= 0) return 6;
+      if (t.indexOf("snares the first") >= 0) return 6;
+      if (t.indexOf("summons a guardian") >= 0) return 6;
 
-      // ===== 5/10 (5) =====
-      if (t.indexOf("shield that explodes") >= 0) return 5;
-      if (t.indexOf("spawn a goblin") >= 0 || t.indexOf("spawns a goblin") >= 0) return 5;
+      // 5/10
+      if (t.indexOf("spawn extra skeletons") >= 0 || t.indexOf("spawns extra skeletons") >= 0) return 5;
       if (t.indexOf("knockback wave") >= 0) return 5;
-      if (t.indexOf("spawn extra skeletons") >= 0) return 5;
+      if (t.indexOf("spawn a goblin") >= 0 || t.indexOf("spawns a goblin") >= 0) return 5;
+      if (t.indexOf("shield that explodes") >= 0) return 5;
       if (t.indexOf("slows everything") >= 0) return 5;
 
-      // ===== 4/10 (5) =====
-      if (t.indexOf("chain lightning") >= 0) return 4;
+      // 4/10
       if (t.indexOf("extra damage and knockback") >= 0) return 4;
       if (t.indexOf("poison targets") >= 0) return 4;
-      if (t.indexOf("full-circle splash") >= 0 || t.indexOf("360") >= 0) return 4;
+      if (t.indexOf("chain lightning") >= 0) return 4;
+      if (t.indexOf("full-circle splash") >= 0) return 4;
       if (t.indexOf("bombs rain") >= 0) return 4;
 
-      // ===== 3/10 (and lower fillers) =====
+      // 3/10
       if (t.indexOf("charge doubles") >= 0) return 3;
-      if (t.indexOf("heals after each kill") >= 0) return 3;
-      if (t.indexOf("death damage") >= 0 || t.indexOf("explodes for death") >= 0) return 3;
-      if (t.indexOf("jumps the river") >= 0) return 3;
       if (t.indexOf("drops rage when defeated") >= 0) return 3;
+      if (t.indexOf("death damage") >= 0 || t.indexOf("explodes for death") >= 0) return 3;
+      if (t.indexOf("heals after each kill") >= 0) return 3;
+      if (t.indexOf("jumps the river") >= 0) return 3;
 
       return 3;
     }
@@ -2335,7 +2347,7 @@
       {
         id: "colossus_hp",
         title: "Colossus",
-        desc: "Steal 5,000 or more hit points onto one card.",
+        desc: "Steal 4,000 or more hit points onto one card.",
         badge: "https://cdn.statsroyale.com/images/badges/16000080.png"
       },
       {
@@ -2485,8 +2497,13 @@
         // Always show all non-special; special only if granted or show as locked exclusive
         var u = data[d.id] && data[d.id].unlocked;
         var date = u && data[d.id].at ? new Date(data[d.id].at).toLocaleDateString() : "";
-        var badgeUrl = (d.badge || "").replace("raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/badges", "cdn.statsroyale.com/images/badges");
-        badgeUrl = badgeUrl.replace("royaleapi.github.io/cr-api-assets/badges", "cdn.statsroyale.com/images/badges");
+        var badgeUrl = d.badge || "";
+        // Keep RoyaleAPI path badges (Diamond_03 etc). Only remap numeric ID badge URLs.
+        if (/badges\/\d+\.png/i.test(badgeUrl)) {
+          badgeUrl = badgeUrl
+            .replace("raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/badges", "cdn.statsroyale.com/images/badges")
+            .replace("royaleapi.github.io/cr-api-assets/badges", "cdn.statsroyale.com/images/badges");
+        }
         html += '<div class="ach-card' + (u ? " unlocked" : "") + '" title="' +
           String(d.title || "").replace(/"/g, "&quot;") +
           (d.desc ? (" — " + String(d.desc).replace(/"/g, "&quot;")) : "") + '">' +
@@ -2556,7 +2573,7 @@
         if (elixir != null && !isNaN(elixir) && elixir <= 3) unlockAchievement("budget_king");
         if (elixir != null && !isNaN(elixir) && elixir === 1) unlockAchievement("budget_god");
         if (hp != null && hp >= 3000) unlockAchievement("titan_hp");
-        if (hp != null && hp >= 5000) unlockAchievement("colossus_hp");
+        if (hp != null && hp >= 4000) unlockAchievement("colossus_hp");
         if (dmg != null && dmg >= 600) unlockAchievement("nuke_dmg");
         if (dmg != null && hp != null && dmg >= 400 && hp < 1200) unlockAchievement("glass_cannon");
         if (speed && speed.toLowerCase().indexOf("very fast") >= 0) unlockAchievement("speed_demon");
@@ -3125,24 +3142,25 @@
       }
       var autoLabel = sources.slice(0, 3).join(" / ") || "Daily Build";
       if (autoLabel.length > 18) autoLabel = autoLabel.slice(0, 18);
-      // Daily board always uses ranked username
       var rankedName = null;
       try {
         rankedName = (state && state.dailyUsername) || (rankedLoadProfile() && rankedLoadProfile().username);
       } catch (eN) {}
-      var label = rankedName || customName || autoLabel;
+      if (rankedName) rankedName = String(rankedName).slice(0, 16);
+      var label = customName || autoLabel;
       var fp = typeof buildFingerprint === "function" ? buildFingerprint(stats) : (label + "|" + score);
       var list = loadDailyLeaderboard(key);
       var replaced = false;
-      var userKey = String(label || "").toLowerCase();
+      var userKey = rankedName ? String(rankedName).toLowerCase() : "";
       for (var j = 0; j < list.length; j++) {
         var sameFp = list[j].fp && list[j].fp === fp;
-        var sameUser = userKey && String(list[j].label || "").toLowerCase() === userKey;
+        var sameUser = userKey && String(list[j].username || list[j].label || "").toLowerCase() === userKey;
         if (sameFp || sameUser) {
           if ((Number(score) || 0) >= (Number(list[j].rating) || 0)) {
             list[j] = {
               id: list[j].id || (Date.now() + "-d"),
               label: label,
+              username: rankedName || null,
               rating: score,
               win: Math.round(projWin * 10) / 10,
               date: new Date().toISOString(),
@@ -3736,7 +3754,7 @@
         }
 
         try {
-          container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          /* no page autoscroll */
         } catch (e3) {}
       } catch (err) {
         console.error("showStatChoices error", err);
@@ -4913,6 +4931,13 @@
       var autoLabel = bits.length ? bits.join("·") : "Custom";
       if (autoLabel.length > 18) autoLabel = autoLabel.slice(0, 18);
       var label = customName || autoLabel;
+      var rankedName = null;
+      try {
+        rankedName = (ranked && ranked.profile && ranked.profile.username)
+          || (typeof rankedLoadProfile === "function" && rankedLoadProfile() && rankedLoadProfile().username)
+          || null;
+      } catch (eRn) { rankedName = null; }
+      if (rankedName) rankedName = String(rankedName).slice(0, 16);
 
       var fp = buildFingerprint(stats);
       var hr = hiddenCategoryRank(stats);
@@ -4942,6 +4967,7 @@
       list.push({
         id: newId,
         label: label,
+        username: rankedName || null,
         rating: score,
         win: Math.round(projWin * 10) / 10,
         date: new Date().toISOString(),
@@ -5077,9 +5103,15 @@
           var e = list[i];
           var isYou = highlightId && e && String(e.id) === String(highlightId);
           var cls = isYou ? ' class="you lb-you-row"' : "";
-          var label = isYou
-            ? (String(e.label || "Build") + ' <span class="you-badge">YOU</span>')
-            : String(e.label || "Build");
+          var baseLabel = String(e.label || "Build");
+          var byUser = e.username ? String(e.username) : "";
+          // Legacy daily entries stored username as the whole label
+          if (!byUser && lastLbMode === "daily" && e.label && !e.stats) byUser = "";
+          var label = baseLabel;
+          if (byUser) {
+            label = baseLabel + ' <span class="lb-by">by ' + byUser.replace(/</g, "&lt;") + "</span>";
+          }
+          if (isYou) label += ' <span class="you-badge">YOU</span>';
           if (lastLbMode === "daily") {
             html += "<tr" + cls + ' data-lbid="' + String(e.id || "") + '">' +
               "<td>" + (i + 1) + "</td>" +
@@ -5684,7 +5716,7 @@
         // Bots never send MQTT heartbeats — never treat them as disconnected
         if (mp.ranked && mp.active && !mp.resultShown && mp.oppConnected && !mp.isBot) {
           var silent = Date.now() - (mp._lastHeard || Date.now());
-          if (silent > 12000) {
+          if (silent > 15000) {
             try { rankedOnOpponentDisconnect("Disconnected"); } catch (eDisc) {}
           }
         }
@@ -6904,7 +6936,12 @@
       // Scroll current into view
       setTimeout(function() {
         var el = road.querySelector(".trophy-node.current");
-        if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+        if (el && road) {
+          try {
+            var top = el.offsetTop - (road.clientHeight / 2) + (el.offsetHeight / 2);
+            road.scrollTop = Math.max(0, top);
+          } catch (eScRoad) {}
+        }
       }, 100);
     }
 
