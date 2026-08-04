@@ -1173,7 +1173,12 @@
     body.mp-active .btn-reset-classic {
       display: none !important;
     }
+
+    img.equip-badge, .ach-card img, .player-badges img, .rb-badges img {
+      cursor: help;
+    }
 </style>
+
 </head>
 <body class="show-images show-grades">
   <div id="dailySwitchOverlay" aria-hidden="true"><div class="dso-spin"></div><div>Next card</div></div>
@@ -2426,7 +2431,9 @@
         var date = u && data[d.id].at ? new Date(data[d.id].at).toLocaleDateString() : "";
         var badgeUrl = (d.badge || "").replace("raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/badges", "cdn.statsroyale.com/images/badges");
         badgeUrl = badgeUrl.replace("royaleapi.github.io/cr-api-assets/badges", "cdn.statsroyale.com/images/badges");
-        html += '<div class="ach-card' + (u ? " unlocked" : "") + '">' +
+        html += '<div class="ach-card' + (u ? " unlocked" : "") + '" title="' +
+          String(d.title || "").replace(/"/g, "&quot;") +
+          (d.desc ? (" — " + String(d.desc).replace(/"/g, "&quot;")) : "") + '">' +
           '<img src="' + badgeUrl + '" alt="" referrerpolicy="no-referrer" loading="lazy" ' +
           'onerror="this.onerror=null;this.src=\'https://cdn.statsroyale.com/images/badges/16000000.png\';" />' +
           '<div class="ach-title">' + d.title + '</div>' +
@@ -2548,7 +2555,12 @@
       var def = badgeDefById(id);
       if (!def) return "";
       var s = size || 22;
-      return '<img class="equip-badge" src="' + def.badge + '" alt="" width="' + s + '" height="' + s +
+      var name = def.title || id;
+      var tip = name + (def.desc ? (" — " + def.desc) : "");
+      tip = String(tip).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+      name = String(name).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+      return '<img class="equip-badge" src="' + def.badge + '" alt="' + name + '" title="' + tip +
+        '" width="' + s + '" height="' + s +
         '" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'" />';
     }
     function renderBadgeStrip(ids, size) {
@@ -2581,11 +2593,17 @@
       }
       if (changed) saveAchievements(data);
       if (u === "developer") {
+        // Original boost was +1189; reduced by 1000 → effective floor/boost 189
         if (!p._devBoosted) {
-          p.elo = (Number(p.elo) || 0) + 1189;
+          p.elo = (Number(p.elo) || 0) + 189;
           p._devBoosted = true;
         }
-        p.elo = Math.max(Number(p.elo) || 0, 1189);
+        // One-time −1000 for accounts that already received the old +1189 boost
+        if (p._devBoosted && !p._devNerf1000) {
+          p.elo = Math.max(0, (Number(p.elo) || 0) - 1000);
+          p._devNerf1000 = true;
+        }
+        p.elo = Math.max(Number(p.elo) || 0, 189);
         p.wins = Math.max(Number(p.wins) || 0, 179);
         p.losses = 0;
       }
@@ -3252,6 +3270,22 @@
         return;
       }
       if (mp.myDone && !mp.oppDone) {
+        // Bot: still produce a real score instead of DNF
+        if (mp.isBot) {
+          try {
+            var myEloT = (ranked.profile && ranked.profile.elo != null) ? ranked.profile.elo
+              : (mp.oppElo != null ? mp.oppElo : RANKED_START_ELO);
+            var arenaT = rankedArenaForElo(myEloT);
+            mp.oppScore = rankedGenerateBotScore(rankedBotTargetOverall(arenaT.id));
+            mp.oppLabel = (mp.oppName ? mp.oppName + "'s Card" : "Opponent card");
+          } catch (eTB) {
+            mp.oppScore = 70;
+            mp.oppLabel = "Opponent card";
+          }
+          mp.oppDone = true;
+          mpRevealResults();
+          return;
+        }
         // You finished, opponent did not → you win by timeout
         mp.oppDone = true;
         mp.oppScore = -1;
@@ -3283,6 +3317,8 @@
     /** Opponent left / went silent during ranked race → local win. */
     function rankedOnOpponentDisconnect(reason) {
       if (!mp || !mp.ranked || mp.resultShown || !mp.active) return;
+      // Bots are local — never resolve as a disconnect/DNF
+      if (mp.isBot) return;
       if (mp.myDone && mp.oppDone) {
         mpRevealResults();
         return;
@@ -5562,7 +5598,8 @@
           mpSend({ t: "settings", settings: mp.settings });
         }
         // Ranked: if opponent silent too long during active race → disconnect win
-        if (mp.ranked && mp.active && !mp.resultShown && mp.oppConnected) {
+        // Bots never send MQTT heartbeats — never treat them as disconnected
+        if (mp.ranked && mp.active && !mp.resultShown && mp.oppConnected && !mp.isBot) {
           var silent = Date.now() - (mp._lastHeard || Date.now());
           if (silent > 12000) {
             try { rankedOnOpponentDisconnect("Disconnected"); } catch (eDisc) {}
@@ -5713,6 +5750,7 @@
         mp.oppLabel = mp.oppLabel || "Timeout";
         mpRevealResults();
       } else if (data.t === "forfeit" || data.t === "disconnect") {
+        if (mp.isBot) return;
         try { rankedOnOpponentDisconnect(data.reason || "Disconnected"); } catch (eF) {}
       }
     }
@@ -5924,6 +5962,11 @@
       }
       mp.active = true; mp.myDone = false; mp.oppDone = false; mp.resultShown = false;
       mp._matchupShown = false;
+      if (mp.isBot) {
+        mp.oppConnected = true;
+        mp._lastHeard = Date.now() + 86400000;
+        try { mpStopPresence(); } catch (eBP) {}
+      }
       startGame();
     }
     var mpWaitPollId = null;
@@ -5952,12 +5995,18 @@
 
       // Bot opponent: generate their score after a short natural delay
       if (mp.isBot && !mp.oppDone) {
+        mp.oppConnected = true;
+        mp._lastHeard = Date.now() + 86400000;
+        try { mpStopPresence(); } catch (ePS) {}
         var stBot = document.getElementById("mpWaitStatus");
         if (stBot) stBot.textContent = "Opponent still drafting… Your score (" + score + ") is locked in.";
         showScreen("screen-mp-wait");
         var delay = 1400 + Math.floor(Math.random() * 2200);
         setTimeout(function() {
           if (mp.resultShown || !mp.myDone) return;
+          // Re-assert bot flags so a stray presence tick cannot DNF them
+          mp.isBot = true;
+          mp.oppConnected = true;
           try {
             var myElo = (ranked.profile && ranked.profile.elo != null) ? ranked.profile.elo
               : (mp.oppElo != null ? mp.oppElo : RANKED_START_ELO);
@@ -7111,22 +7160,15 @@
       showScreen("screen-mp-matchup");
       try { rankedFillBanner(); } catch (eB) {}
 
-      // Connect room on BOTH the dedicated client and the matchmaking client
-      setTimeout(function() {
-        try { mpConnectBroker(); } catch (eC) {}
-        try { rankedBridgeRoom(); } catch (eB) {}
-      }, 100);
-      setTimeout(function() {
-        try { rankedBridgeRoom(); } catch (eB2) {}
-      }, 1000);
-
       if (ranked._autoReadyTimer) clearInterval(ranked._autoReadyTimer);
 
-      // Bot path: no MQTT peer — auto-start the race after matchup
+      // Bot path: fully local — no MQTT room, no presence disconnects
       if (mp.isBot) {
         mp.oppConnected = true;
         mp.oppReady = true;
         mp.ready = true;
+        mp._lastHeard = Date.now() + 86400000; // keep "fresh" forever
+        try { mpStopPresence(); } catch (eP) {}
         try {
           var stB = document.getElementById("muStatusText");
           if (stB) stB.textContent = "Starting race…";
@@ -7140,10 +7182,22 @@
             if (st2) st2.textContent = "Draft race live!";
           } catch (e2) {}
           mp._matchupShown = true;
+          // Keep bot "presence" marked fresh during the whole match
+          mp._lastHeard = Date.now() + 86400000;
+          mp.oppConnected = true;
           mpBeginRace();
         }, 1600);
         return;
       }
+
+      // Connect room on BOTH the dedicated client and the matchmaking client (humans only)
+      setTimeout(function() {
+        try { mpConnectBroker(); } catch (eC) {}
+        try { rankedBridgeRoom(); } catch (eB) {}
+      }, 100);
+      setTimeout(function() {
+        try { rankedBridgeRoom(); } catch (eB2) {}
+      }, 1000);
 
       ranked._autoReadyTimer = setInterval(function() {
         if (!mp.ranked || mp.active || mp.resultShown) {
