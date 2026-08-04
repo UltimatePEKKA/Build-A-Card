@@ -1184,57 +1184,10 @@
       color: var(--muted, #9aa4b2);
       margin-left: 4px;
     }
-
-    .share-row {
-      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
-      margin: 14px 0 6px;
-    }
-    .share-row input {
-      flex: 1 1 180px; min-width: 0; max-width: 100%; padding: 8px 10px; border-radius: 8px;
-      border: 1px solid rgba(245,197,66,0.35); background: rgba(0,0,0,0.35); color: #f0f4ff; font-size: 0.82rem;
-    }
-    .share-status { width: 100%; text-align: center; font-size: 0.8rem; color: var(--gold, #f5c542); min-height: 1.2em; }
-    .spectator-banner {
-      text-align: center; padding: 10px 14px; margin-bottom: 12px; border-radius: 10px;
-      background: linear-gradient(90deg, rgba(245,197,66,0.15), rgba(80,140,255,0.12));
-      border: 1px solid rgba(245,197,66,0.35); color: #e8eefc; font-size: 0.9rem;
-    }
-    .spectator-banner strong { color: var(--gold, #f5c542); }
-    #screen-share .result-card { max-width: 520px; margin: 0 auto; }
-
-
-    /* Ad units — side skyscrapers only */
-    .ad-wrap {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 0;
-      max-width: 100%;
-      overflow: hidden;
-    }
-    .ad-wrap iframe {
-      border: 0;
-      max-width: 100%;
-      display: block;
-      margin: 0 auto;
-      background: transparent;
-    }
-    .ad-sidebar {
-      position: fixed;
-      top: 100px;
-      z-index: 40;
-      display: none;
-    }
-    .ad-sidebar.left { left: 4px; }
-    .ad-sidebar.right { right: 4px; }
-    @media (min-width: 1200px) {
-      .ad-sidebar { display: block; }
-    }
-
 </style>
 
 
-  </head>
+</head>
 <body class="show-images show-grades">
   <div id="dailySwitchOverlay" aria-hidden="true"><div class="dso-spin"></div><div>Next card</div></div>
   <div class="version-badge" aria-hidden="true">V 1.3</div>
@@ -1278,8 +1231,8 @@
     </header>
 
     <section id="screen-home" class="screen active">
-</div>
-<div class="home-card">
+      
+      <div class="home-card">
         <div class="home-arena" aria-hidden="true">
           <img
             src="https://raw.githubusercontent.com/RoyaleAPI/cr-api-assets/master/arenas/arena6.png"
@@ -1306,9 +1259,7 @@
           <button class="btn btn-secondary" id="btnLeaderboard" type="button">All-Time Leaderboard</button>
           <button class="btn btn-secondary" id="btnAchievements" type="button" onclick="window.__navAchievements&&window.__navAchievements(event)">Achievements</button>
         </div>
-</div>
-</div>
-</div>
+      </div>
     </section>
 
     <section id="screen-ranked" class="screen">
@@ -1556,32 +1507,6 @@
       </div>
     </section>
 
-    
-    <section id="screen-share" class="screen">
-      <div class="result-card">
-        <div class="spectator-banner" id="shareBanner">Shared card · view only</div>
-        <div class="result-title">SHARED CARD</div>
-        <div class="name-row">
-          <input type="text" id="shareCardName" maxlength="24" readonly />
-        </div>
-        <div class="power-score" id="sharePowerScore">0</div>
-        <div class="power-label">Power Rating</div>
-        <div class="power-sub">out of 99 · ranked against other players' cards</div>
-        <div class="tier-tag" id="shareTierTag">—</div>
-        <div class="result-stats" id="shareResultStats"></div>
-        <div class="flavor-line" id="shareFlavorLine"></div>
-        <div class="share-row">
-          <input type="text" id="shareLinkInput2" readonly aria-label="Share link" />
-          <button type="button" class="btn btn-secondary" id="btnCopyShare2" style="flex:0 0 auto">Copy link</button>
-        </div>
-        <div class="share-status" id="shareStatus2"></div>
-        <div class="home-actions" style="margin-top:16px;display:flex;flex-direction:column;gap:10px;max-width:280px;margin-left:auto;margin-right:auto">
-          <button type="button" class="btn btn-primary" id="btnShareBuildOwn">Build your own card</button>
-          <button type="button" class="btn btn-secondary" id="btnShareHome">Home</button>
-        </div>
-      </div>
-    </section>
-
     <section id="screen-result" class="screen">
       <div class="result-card">
         <div class="result-title">CARD COMPLETE</div>
@@ -1597,11 +1522,6 @@
         <div class="result-stats" id="resultStats"></div>
         <div class="arena-report" id="arenaReport"></div>
         <div class="flavor-line" id="flavorLine"></div>
-        <div class="share-row" id="shareRow">
-          <input type="text" id="shareLinkInput" readonly aria-label="Share link" placeholder="Share link appears here…" />
-          <button type="button" class="btn btn-primary" id="btnCopyShare" style="flex:0 0 auto">Copy link</button>
-        </div>
-        <div class="share-status" id="shareStatus"></div>
         <div class="deck-section">
           <h4>Best Deck With Your Card</h4>
           <div class="deck-arch" id="deckArch">—</div>
@@ -3083,44 +3003,25 @@
     }
 
     function hasUsedDailyAttempt() {
-      var p = null;
-      try { p = rankedLoadProfile(); } catch (e0) {}
-      var u = (p && p.username) ? String(p.username).toLowerCase() : "";
-
       try {
         var v = localStorage.getItem(dailyAttemptStorageKey());
         if (v === "1" || v === "done") return true;
       } catch (e) {}
-
-      if (u) {
-        try {
-          var list = loadDailyLeaderboard(dailyDateKey()) || [];
-          for (var i = 0; i < list.length; i++) {
-            var e = list[i];
-            if (!e) continue;
-            if (String(e.username || "").toLowerCase() === u) return true;
-            if (String(e.label || "").toLowerCase() === u) return true;
-          }
-        } catch (e2) {}
-      }
       try {
-        if (p && p.dailyLastKey && String(p.dailyLastKey) === String(dailyDateKey())) return true;
-      } catch (e3) {}
+        var p = rankedLoadProfile();
+        if (!p || !p.username) return false;
+        var list = loadDailyLeaderboard(dailyDateKey()) || [];
+        var u = String(p.username).toLowerCase();
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && String(list[i].label || "").toLowerCase() === u) return true;
+        }
+      } catch (e2) {}
       return false;
     }
 
     function markDailyAttemptUsed() {
       try { localStorage.setItem(dailyAttemptStorageKey(), "done"); } catch (e) {}
-      try {
-        var p2 = rankedLoadProfile();
-        if (p2 && p2.username) {
-          p2.dailyLastKey = dailyDateKey();
-          rankedSaveProfile(p2);
-        }
-      } catch (eP) {}
     }
-
-    
 
     function startDailyChallenge() {
       try { showDailySwitchOverlay(false); } catch (eOv) {}
@@ -3176,10 +3077,9 @@
         dailyPickedSlugs: [],
         dailyUsername: profile.username,
         _finishing: false,
-        dailyAttemptPending: false
+        dailyAttemptPending: true
       };
-      // Commit the daily attempt immediately — one run per username per UTC day
-      try { markDailyAttemptUsed(); } catch (eMark) {}
+      // Attempt is committed when the run finishes (not on open), so a glitch can't lock the button forever
 
       document.body.classList.add("daily-challenge");
       document.body.classList.remove("show-grades");
@@ -5288,16 +5188,6 @@
       }
       var titleEl = document.querySelector(".result-title");
       if (titleEl) titleEl.textContent = check.name.toUpperCase();
-      try {
-        if (_lastSharePayload) {
-          _lastSharePayload.name = check.name;
-          refreshShareLinkUI(_lastSharePayload);
-          var stN = document.getElementById("shareStatus");
-          if (stN) stN.textContent = "Share link updated with card name.";
-        } else if (state && state._pendingBuild != null && state._pendingScore != null) {
-          refreshShareLinkUI(buildSharePayload(state._pendingScore, state._pendingBuild, check.name, {}));
-        }
-      } catch (eSh2) {}
     }
 
     function showLeaderboard() {
@@ -5321,166 +5211,7 @@
 
     function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-    
-    /* ===== SHARE / SPECTATOR LINK ===== */
-    var _lastSharePayload = null;
-
-    function shareEncodePayload(obj) {
-      try {
-        var json = JSON.stringify(obj);
-        var b64 = btoa(unescape(encodeURIComponent(json)));
-        return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-      } catch (e) { return ""; }
-    }
-
-    function shareDecodePayload(str) {
-      try {
-        var b64 = String(str || "").replace(/-/g, "+").replace(/_/g, "/");
-        while (b64.length % 4) b64 += "=";
-        var json = decodeURIComponent(escape(atob(b64)));
-        return JSON.parse(json);
-      } catch (e) { return null; }
-    }
-
-    function buildSharePayload(score, build, cardName, extra) {
-      extra = extra || {};
-      var stats = [];
-      try {
-        for (var i = 0; i < CATEGORIES.length; i++) {
-          var cat = CATEGORIES[i];
-          var e = build && build[cat.key];
-          if (!e) continue;
-          stats.push({ k: cat.key, v: e.value, s: e.source || "", g: typeof e.grade === "number" ? e.grade : 5 });
-        }
-      } catch (eS) {}
-      var user = null;
-      try {
-        user = (ranked && ranked.profile && ranked.profile.username)
-          || (typeof rankedLoadProfile === "function" && rankedLoadProfile() && rankedLoadProfile().username)
-          || null;
-      } catch (eU) {}
-      return {
-        v: 1,
-        name: String(cardName || "Unnamed Card").slice(0, 24),
-        score: Math.round(Number(score) || 0),
-        tier: extra.tier || "",
-        tierClass: extra.tierClass || "",
-        flavor: extra.flavor || "",
-        user: user ? String(user).slice(0, 16) : null,
-        stats: stats,
-        at: Date.now()
-      };
-    }
-
-    function shareUrlFromPayload(payload) {
-      var token = shareEncodePayload(payload);
-      if (!token) return "";
-      var base = location.href.split("#")[0].split("?")[0];
-      return base + "#share=" + token;
-    }
-
-    function refreshShareLinkUI(payload) {
-      if (payload) _lastSharePayload = payload;
-      if (!_lastSharePayload) return;
-      var url = shareUrlFromPayload(_lastSharePayload);
-      var a = document.getElementById("shareLinkInput");
-      var b = document.getElementById("shareLinkInput2");
-      if (a) a.value = url;
-      if (b) b.value = url;
-    }
-
-    function copyShareLink(fromInputId, statusId) {
-      var inp = document.getElementById(fromInputId || "shareLinkInput");
-      var st = document.getElementById(statusId || "shareStatus");
-      var url = (inp && inp.value) || (_lastSharePayload ? shareUrlFromPayload(_lastSharePayload) : "");
-      if (!url) {
-        if (st) st.textContent = "Nothing to share yet — finish a card first.";
-        return;
-      }
-      function ok() {
-        if (st) st.textContent = "Link copied — send it to a friend!";
-        setTimeout(function() { if (st && st.textContent.indexOf("copied") >= 0) st.textContent = ""; }, 2500);
-      }
-      function fail() {
-        try { if (inp) { inp.focus(); inp.select(); } } catch (e0) {}
-        if (st) st.textContent = "Select the link and copy manually (Ctrl/Cmd+C).";
-      }
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(ok).catch(fail);
-        } else if (inp) {
-          inp.focus(); inp.select(); document.execCommand("copy"); ok();
-        } else fail();
-      } catch (e) { fail(); }
-    }
-
-    function showSharedCard(payload) {
-      if (!payload || !payload.stats) return false;
-      try { document.body.classList.add("spectator-mode"); } catch (e0) {}
-      var name = payload.name || "Shared Card";
-      var score = payload.score != null ? payload.score : "—";
-      var nameEl = document.getElementById("shareCardName");
-      var scoreEl = document.getElementById("sharePowerScore");
-      var tierEl = document.getElementById("shareTierTag");
-      var statsEl = document.getElementById("shareResultStats");
-      var flavorEl = document.getElementById("shareFlavorLine");
-      var banner = document.getElementById("shareBanner");
-      if (nameEl) nameEl.value = name;
-      if (scoreEl) scoreEl.textContent = score;
-      if (tierEl) {
-        tierEl.textContent = payload.tier || ("Power " + score);
-        tierEl.className = "tier-tag " + (payload.tierClass || "");
-      }
-      if (banner) {
-        banner.innerHTML = payload.user
-          ? ('Shared card by <strong>' + String(payload.user).replace(/</g, "&lt;") + "</strong> · view only")
-          : "Shared card · view only";
-      }
-      var statsHtml = "";
-      var byKey = {};
-      (payload.stats || []).forEach(function(s) { byKey[s.k] = s; });
-      try {
-        for (var i = 0; i < CATEGORIES.length; i++) {
-          var cat = CATEGORIES[i];
-          var e = byKey[cat.key];
-          if (!e) continue;
-          var formatted = "—";
-          try { formatted = cat.format(e.v); } catch (fe) { formatted = String(e.v); }
-          var g = typeof e.g === "number" ? e.g : 5;
-          statsHtml += '<div class="row"><span>' + cat.label + '</span><span class="mid">' +
-            formatted + ' <small style="color:var(--gold-dim)">(' + (e.s || "?") + ')</small></span>' +
-            '<span class="mini-grade ' + (typeof gradeClass === "function" ? gradeClass(g) : "") + '" style="display:inline-block">' + g + "/10</span></div>";
-        }
-      } catch (eSt) {}
-      if (statsEl) statsEl.innerHTML = statsHtml;
-      if (flavorEl) flavorEl.textContent = payload.flavor || ("A " + score + " overall Frankenstein card.");
-      _lastSharePayload = payload;
-      refreshShareLinkUI(payload);
-      try { showScreen("screen-share"); } catch (eSh) {}
-      return true;
-    }
-
-    function tryOpenShareFromHash() {
-      try {
-        var h = String(location.hash || "");
-        var m = h.match(/(?:^|#|&)share=([A-Za-z0-9\-_]+)/);
-        if (!m) return false;
-        var payload = shareDecodePayload(m[1]);
-        if (!payload) return false;
-        return showSharedCard(payload);
-      } catch (e) { return false; }
-    }
-
-    function exitSpectatorToHome() {
-      try { document.body.classList.remove("spectator-mode"); } catch (e) {}
-      try {
-        if (history && history.replaceState) history.replaceState(null, "", location.pathname + location.search);
-        else location.hash = "";
-      } catch (e2) {}
-      try { showScreen("screen-home"); } catch (e3) {}
-    }
-
-function finishBuild() {
+    function finishBuild() {
       if (state && state._finishing) return;
       if (state) state._finishing = true;
       try { showDailySwitchOverlay(false); } catch (eO) {}
@@ -5675,9 +5406,6 @@ function finishBuild() {
         state._pendingBuild = b;
 
         try {
-          if (state.daily) {
-            try { markDailyAttemptUsed(); } catch (eMu) {}
-          }
           var listAfter = (state.daily)
             ? addDailyLeaderboardEntry(score, b, null)
             : addLeaderboardEntry(score, b, null);
@@ -7753,31 +7481,6 @@ function finishBuild() {
 
 
     document.addEventListener("DOMContentLoaded", function() {
-
-      try {
-        var btnCs = document.getElementById("btnCopyShare");
-        if (btnCs) btnCs.addEventListener("click", function() { copyShareLink("shareLinkInput", "shareStatus"); });
-        var btnCs2 = document.getElementById("btnCopyShare2");
-        if (btnCs2) btnCs2.addEventListener("click", function() { copyShareLink("shareLinkInput2", "shareStatus2"); });
-        var btnShHome = document.getElementById("btnShareHome");
-        if (btnShHome) btnShHome.addEventListener("click", function() { exitSpectatorToHome(); });
-        var btnShOwn = document.getElementById("btnShareBuildOwn");
-        if (btnShOwn) btnShOwn.addEventListener("click", function() {
-          try { document.body.classList.remove("spectator-mode"); } catch (e0) {}
-          try {
-            if (history && history.replaceState) history.replaceState(null, "", location.pathname + location.search);
-            else location.hash = "";
-          } catch (e1) {}
-          try {
-            if (typeof startGame === "function") startGame();
-            else showScreen("screen-home");
-          } catch (e2) { try { showScreen("screen-home"); } catch (e3) {} }
-        });
-        window.addEventListener("hashchange", function() {
-          if (String(location.hash || "").indexOf("share=") >= 0) tryOpenShareFromHash();
-        });
-      } catch (eShareBind) {}
-
       document.getElementById("settingsBtn").addEventListener("click", function(e) {
         if (document.body.classList.contains("ranked-lock") || (mp && mp.ranked && !mp.resultShown)) {
           e.preventDefault();
@@ -8064,12 +7767,7 @@ function finishBuild() {
       });
 
       // Preload every card art, then reveal the app
-      preloadAllCardImages(function() {
-        try { hideLoadingScreen(); } catch (eH) {}
-        try {
-          if (tryOpenShareFromHash()) return;
-        } catch (eS) {}
-      });
+      preloadAllCardImages(hideLoadingScreen);
     });
 
   </script>
@@ -8098,49 +7796,6 @@ function finishBuild() {
   </section>
   <!-- bottom nav removed — Achievements lives on the home menu -->
   <div class="ach-toast" id="achToast"><img id="achToastImg" alt="" /><div><strong id="achToastTitle">Achievement unlocked</strong><span id="achToastDesc"></span></div></div>
-
-  <!-- Side skyscraper ads (desktop) -->
-  <div class="ad-sidebar left" id="ad-side-160"><div class="ad-wrap ad-160" style="width:160px;max-width:100%;height:300px;min-height:300px">
-<iframe title="160x300"
-  width="160" height="300"
-  style="border:0;width:160px;max-width:100%;height:300px;overflow:hidden;display:block;margin:0 auto;background:transparent"
-  scrolling="no" loading="lazy"
-  srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;style&gt;
-html,body{margin:0;padding:0;overflow:hidden;background:transparent;}
-&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
-&lt;script&gt;
-atOptions = {
-  'key' : '35d37764a53d3685e3593a93b206119e',
-  'format' : 'iframe',
-  'height' : 300,
-  'width' : 160,
-  'params' : {}
-};
-&lt;/script&gt;
-&lt;script src=&quot;https://www.highperformanceformat.com/35d37764a53d3685e3593a93b206119e/invoke.js&quot;&gt;&lt;/script&gt;
-&lt;/body&gt;&lt;/html&gt;"></iframe>
-</div></div>
-  <div class="ad-sidebar right" id="ad-side-160-r"><div class="ad-wrap ad-160" style="width:160px;max-width:100%;height:300px;min-height:300px">
-<iframe title="160x300"
-  width="160" height="300"
-  style="border:0;width:160px;max-width:100%;height:300px;overflow:hidden;display:block;margin:0 auto;background:transparent"
-  scrolling="no" loading="lazy"
-  srcdoc="&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;style&gt;
-html,body{margin:0;padding:0;overflow:hidden;background:transparent;}
-&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
-&lt;script&gt;
-atOptions = {
-  'key' : '35d37764a53d3685e3593a93b206119e',
-  'format' : 'iframe',
-  'height' : 300,
-  'width' : 160,
-  'params' : {}
-};
-&lt;/script&gt;
-&lt;script src=&quot;https://www.highperformanceformat.com/35d37764a53d3685e3593a93b206119e/invoke.js&quot;&gt;&lt;/script&gt;
-&lt;/body&gt;&lt;/html&gt;"></iframe>
-</div></div>
-
 </body>
 </html>
  
