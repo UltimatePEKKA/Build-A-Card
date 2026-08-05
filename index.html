@@ -526,8 +526,8 @@
       margin-bottom: 16px; border: 1px solid var(--border);
     }
     .result-stats .row {
-      display: flex; justify-content: space-between; align-items: center; gap: 8px;
-      padding: 9px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 12px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px;
     }
     .result-stats .row:last-child { border-bottom: none; }
     .result-stats .row span:first-child { color: var(--muted); }
@@ -5334,6 +5334,17 @@ function gradeClass(g) { return "grade-" + g; }
 
         score = computePowerFromBuild(b);
 
+        // Locals used by report flavor lines (and safe if scoring helper changes)
+        var gradesTmp = [];
+        for (var gi = 0; gi < CATEGORIES.length; gi++) {
+          var gg = b[CATEGORIES[gi].key] && b[CATEGORIES[gi].key].grade;
+          gradesTmp.push((typeof gg === "number" && gg > 0) ? gg : 5);
+        }
+        var minG = Math.min.apply(null, gradesTmp);
+        var hp = (b.hp && b.hp.value) || 0;
+        var dmg = (b.dmg && b.dmg.value) || 0;
+        var el = (b.elixir && b.elixir.value) || 5;
+
         if (score >= 93) {
           tier = "S-Tier · Broken"; tierClass = "tier-s";
           report = pick([
@@ -5432,10 +5443,12 @@ function gradeClass(g) { return "grade-" + g; }
           ]);
         }
 
-        if (minG <= 2) report += " Your " + minG + "/10 stat is dragging the whole card down hard.";
-        if (el <= 2 && score >= 70) report += " Absurdly cheap for how strong it is.";
-        if (hp >= 4000) report += " Basically a walking building.";
-        if (dmg >= 1200) report += " One-shot energy is very real.";
+        try {
+          if (minG <= 2) report += " Your " + minG + "/10 stat is dragging the whole card down hard.";
+          if (el <= 2 && score >= 70) report += " Absurdly cheap for how strong it is.";
+          if (hp >= 4000) report += " Basically a walking building.";
+          if (dmg >= 1200) report += " One-shot energy is very real.";
+        } catch (eRep) {}
 
         var ps = document.getElementById("powerScore");
         if (ps) ps.textContent = score;
@@ -5462,7 +5475,21 @@ function gradeClass(g) { return "grade-" + g; }
         var fl = document.getElementById("flavorLine");
         if (fl) fl.textContent = flavor;
 
-        try { renderDeck(b); } catch (deckErr) { console.warn("renderDeck", deckErr); }
+        try {
+          renderDeck(b);
+        } catch (deckErr) {
+          console.warn("renderDeck", deckErr);
+          try {
+            var da = document.getElementById("deckArch");
+            var dw = document.getElementById("deckWhy");
+            var dg = document.getElementById("deckGrid");
+            var de = document.getElementById("deckElixir");
+            if (da) da.textContent = "Custom Shell";
+            if (dw) dw.textContent = "Deck suggestion unavailable — try drafting again.";
+            if (dg) dg.innerHTML = "";
+            if (de) de.textContent = "";
+          } catch (eFb) {}
+        }
 
         var nameInput = document.getElementById("cardNameInput");
         if (nameInput) nameInput.value = "";
@@ -5522,6 +5549,23 @@ function gradeClass(g) { return "grade-" + g; }
         if (ar2) ar2.textContent = report;
         var fl2 = document.getElementById("flavorLine");
         if (fl2) fl2.textContent = flavor;
+        // Still try to paint stats + deck so the result page is never blank
+        try {
+          var b2 = (state && state.build) ? state.build : {};
+          var statsHtml2 = "";
+          for (var si = 0; si < CATEGORIES.length; si++) {
+            var cat2 = CATEGORIES[si];
+            var e2 = b2[cat2.key] || { value: "—", source: "?", grade: 5 };
+            var formatted2 = "—";
+            try { formatted2 = cat2.format(e2.value); } catch (fe2) { formatted2 = String(e2.value); }
+            statsHtml2 += '<div class="row"><span>' + cat2.label + '</span><span class="mid">' +
+              formatted2 + ' <small style="color:var(--gold-dim)">(' + (e2.source || "?") + ')</small></span>' +
+              '<span class="mini-grade ' + gradeClass(e2.grade || 5) + '" style="display:inline-block">' + (e2.grade || 5) + '/10</span></div>';
+          }
+          var rs2 = document.getElementById("resultStats");
+          if (rs2) rs2.innerHTML = statsHtml2;
+        } catch (eStats) {}
+        try { renderDeck((state && state.build) || {}); } catch (eDeck2) {}
       }
 
       try {
@@ -7625,82 +7669,110 @@ function gradeClass(g) { return "grade-" + g; }
           if (ps) score = parseInt(ps.textContent, 10) || 50;
         }
         var tierEl = document.getElementById("tierTag");
-        var tier = (tierEl && tierEl.textContent) || "";
-        if (tier.length > 36) tier = tier.slice(0, 36);
+        var tier = (tierEl && tierEl.textContent.trim()) || "";
+        if (tier.length > 40) tier = tier.slice(0, 40);
 
-        var W = 720, H = 1100;
+        var W = 720, H = 1280;
         var canvas = document.createElement("canvas");
         canvas.width = W;
         canvas.height = H;
         var ctx = canvas.getContext("2d");
 
-        // Background
+        function roundRect(c, x, y, w, h, r) {
+          var rr = Math.min(r, w / 2, h / 2);
+          c.beginPath();
+          c.moveTo(x + rr, y);
+          c.arcTo(x + w, y, x + w, y + h, rr);
+          c.arcTo(x + w, y + h, x, y + h, rr);
+          c.arcTo(x, y + h, x, y, rr);
+          c.arcTo(x, y, x + w, y, rr);
+          c.closePath();
+        }
+        function fitText(c, text, x, y, maxW, size) {
+          var s = size;
+          c.font = "800 " + s + "px Inter, system-ui, sans-serif";
+          while (s > 24 && c.measureText(text).width > maxW) {
+            s -= 2;
+            c.font = "800 " + s + "px Inter, system-ui, sans-serif";
+          }
+          c.fillText(text, x, y);
+        }
+        function gradeColor(g) {
+          var n = Number(g);
+          if (n >= 9) return { bg: "rgba(252,129,129,0.22)", border: "#fc8181", fg: "#fc8181" };
+          if (n >= 7) return { bg: "rgba(246,173,85,0.22)", border: "#f6ad55", fg: "#f6ad55" };
+          if (n >= 5) return { bg: "rgba(77,163,255,0.2)", border: "#4da3ff", fg: "#4da3ff" };
+          if (n >= 3) return { bg: "rgba(160,174,192,0.2)", border: "#a0aec0", fg: "#a0aec0" };
+          return { bg: "rgba(139,155,184,0.14)", border: "#8b9bb8", fg: "#8b9bb8" };
+        }
+
         var bg = ctx.createLinearGradient(0, 0, 0, H);
-        bg.addColorStop(0, "#0a0f1c");
-        bg.addColorStop(0.45, "#12192b");
-        bg.addColorStop(1, "#080c16");
+        bg.addColorStop(0, "#070b14");
+        bg.addColorStop(0.4, "#0e1526");
+        bg.addColorStop(1, "#060914");
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, W, H);
 
-        // Soft gold glow behind score
-        var glow = ctx.createRadialGradient(W/2, 210, 20, W/2, 210, 220);
-        glow.addColorStop(0, "rgba(245,197,66,0.28)");
+        var glow = ctx.createRadialGradient(W / 2, 260, 10, W / 2, 260, 260);
+        glow.addColorStop(0, "rgba(245,197,66,0.32)");
+        glow.addColorStop(0.55, "rgba(245,197,66,0.08)");
         glow.addColorStop(1, "rgba(245,197,66,0)");
         ctx.fillStyle = glow;
-        ctx.fillRect(0, 40, W, 360);
+        ctx.fillRect(0, 60, W, 420);
 
-        // Outer frame
-        ctx.strokeStyle = "rgba(245,197,66,0.35)";
+        ctx.strokeStyle = "rgba(245,197,66,0.4)";
         ctx.lineWidth = 3;
-        roundRect(ctx, 28, 28, W - 56, H - 56, 28);
+        roundRect(ctx, 24, 24, W - 48, H - 48, 28);
         ctx.stroke();
-        ctx.strokeStyle = "rgba(77,163,255,0.12)";
-        ctx.lineWidth = 1;
-        roundRect(ctx, 40, 40, W - 80, H - 80, 22);
+        ctx.strokeStyle = "rgba(77,163,255,0.1)";
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, 38, 38, W - 76, H - 76, 22);
         ctx.stroke();
 
-        // Brand
-        ctx.fillStyle = "rgba(139,155,184,0.9)";
-        ctx.font = "600 18px Inter, system-ui, sans-serif";
+        // Top brand
         ctx.textAlign = "center";
-        ctx.fillText("BUILD-A-CARD  ·  CLASH ROYALE FAN", W/2, 78);
-
-        // Card name
-        ctx.fillStyle = "#eef2ff";
-        ctx.font = "800 42px Inter, system-ui, sans-serif";
-        fitText(ctx, name, W/2, 140, W - 120, 42);
-
-        // Power score
-        ctx.fillStyle = "#f5c542";
-        ctx.font = "800 120px Inter, system-ui, sans-serif";
-        ctx.fillText(String(score), W/2, 280);
-        ctx.fillStyle = "rgba(245,197,66,0.85)";
+        ctx.fillStyle = "rgba(245,197,66,0.95)";
         ctx.font = "700 22px Inter, system-ui, sans-serif";
-        ctx.fillText("POWER RATING  /  99", W/2, 320);
+        ctx.fillText("Build A Card", W / 2, 92);
+
+        ctx.fillStyle = "#eef2ff";
+        fitText(ctx, name, W / 2, 175, W - 140, 48);
+
+        ctx.fillStyle = "#f5c542";
+        ctx.font = "800 132px Inter, system-ui, sans-serif";
+        ctx.fillText(String(score), W / 2, 335);
+        ctx.fillStyle = "rgba(245,197,66,0.9)";
+        ctx.font = "700 20px Inter, system-ui, sans-serif";
+        ctx.fillText("POWER RATING  /  99", W / 2, 378);
 
         if (tier) {
-          ctx.fillStyle = "rgba(77,163,255,0.2)";
-          var tw = Math.min(420, ctx.measureText(tier).width + 48);
-          roundRect(ctx, (W - tw) / 2, 348, tw, 40, 12);
+          ctx.font = "700 17px Inter, system-ui, sans-serif";
+          var tw = Math.min(460, ctx.measureText(tier).width + 56);
+          var tx = (W - tw) / 2;
+          ctx.fillStyle = "rgba(77,163,255,0.18)";
+          roundRect(ctx, tx, 408, tw, 44, 14);
           ctx.fill();
-          ctx.fillStyle = "#4da3ff";
-          ctx.font = "700 18px Inter, system-ui, sans-serif";
-          ctx.fillText(tier, W/2, 374);
+          ctx.strokeStyle = "rgba(77,163,255,0.35)";
+          ctx.lineWidth = 1.5;
+          roundRect(ctx, tx, 408, tw, 44, 14);
+          ctx.stroke();
+          ctx.fillStyle = "#7ec8ff";
+          ctx.fillText(tier, W / 2, 437);
         }
 
-        // Stats panel
-        var panelY = 420;
-        var panelH = 520;
-        ctx.fillStyle = "rgba(26,35,64,0.85)";
-        roundRect(ctx, 64, panelY, W - 128, panelH, 18);
+        var panelY = 488;
+        var panelH = 650;
+        var padX = 56;
+        ctx.fillStyle = "rgba(18,25,43,0.92)";
+        roundRect(ctx, padX, panelY, W - padX * 2, panelH, 20);
         ctx.fill();
-        ctx.strokeStyle = "rgba(44,58,92,0.9)";
+        ctx.strokeStyle = "rgba(44,58,92,0.85)";
         ctx.lineWidth = 2;
-        roundRect(ctx, 64, panelY, W - 128, panelH, 18);
+        roundRect(ctx, padX, panelY, W - padX * 2, panelH, 20);
         ctx.stroke();
 
-        var rowH = 68;
-        var startY = panelY + 36;
+        var rowH = 88;
+        var startY = panelY + 44;
         for (var i = 0; i < CATEGORIES.length; i++) {
           var cat = CATEGORIES[i];
           var entry = b[cat.key] || {};
@@ -7712,62 +7784,58 @@ function gradeClass(g) { return "grade-" + g; }
             if (typeof cat.format === "function") formatted = cat.format(val);
             else formatted = String(val);
           } catch (eF) { formatted = String(val != null ? val : "—"); }
-          if (String(formatted).length > 42) formatted = String(formatted).slice(0, 40) + "…";
+          if (String(formatted).length > 36) formatted = String(formatted).slice(0, 34) + "…";
 
           var y = startY + i * rowH;
-          // row separator
           if (i > 0) {
-            ctx.strokeStyle = "rgba(44,58,92,0.65)";
+            ctx.strokeStyle = "rgba(44,58,92,0.55)";
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(88, y - 14);
-            ctx.lineTo(W - 88, y - 14);
+            ctx.moveTo(padX + 28, y - 20);
+            ctx.lineTo(W - padX - 28, y - 20);
             ctx.stroke();
           }
 
-          // label
           ctx.textAlign = "left";
           ctx.fillStyle = "#8b9bb8";
-          ctx.font = "600 15px Inter, system-ui, sans-serif";
-          ctx.fillText(cat.label.toUpperCase(), 96, y);
+          ctx.font = "600 13px Inter, system-ui, sans-serif";
+          ctx.fillText(String(cat.label).toUpperCase(), padX + 32, y);
 
-          // value
           ctx.fillStyle = "#eef2ff";
-          ctx.font = "700 22px Inter, system-ui, sans-serif";
-          ctx.fillText(String(formatted), 96, y + 28);
+          ctx.font = "700 24px Inter, system-ui, sans-serif";
+          ctx.fillText(String(formatted), padX + 32, y + 30);
 
-          // source
-          ctx.fillStyle = "rgba(139,155,184,0.85)";
+          ctx.fillStyle = "rgba(139,155,184,0.8)";
           ctx.font = "600 14px Inter, system-ui, sans-serif";
           var srcText = "from " + String(src);
-          if (srcText.length > 28) srcText = srcText.slice(0, 26) + "…";
-          ctx.fillText(srcText, 96, y + 48);
+          if (srcText.length > 30) srcText = srcText.slice(0, 28) + "…";
+          ctx.fillText(srcText, padX + 32, y + 52);
 
-          // grade badge
-          var gx = W - 96 - 52;
-          var gy = y + 4;
+          var gx = W - padX - 36 - 56;
+          var gy = y + 2;
           var gColor = gradeColor(grade);
           ctx.fillStyle = gColor.bg;
-          roundRect(ctx, gx, gy, 52, 52, 12);
+          roundRect(ctx, gx, gy, 56, 56, 14);
           ctx.fill();
           ctx.strokeStyle = gColor.border;
           ctx.lineWidth = 2;
-          roundRect(ctx, gx, gy, 52, 52, 12);
+          roundRect(ctx, gx, gy, 56, 56, 14);
           ctx.stroke();
           ctx.fillStyle = gColor.fg;
-          ctx.font = "800 22px Inter, system-ui, sans-serif";
+          ctx.font = "800 24px Inter, system-ui, sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText(String(grade), gx + 26, gy + 34);
+          ctx.fillText(String(grade), gx + 28, gy + 37);
           ctx.textAlign = "left";
         }
 
-        // Footer
+        // Bottom brand
         ctx.textAlign = "center";
-        ctx.fillStyle = "rgba(139,155,184,0.75)";
-        ctx.font = "600 16px Inter, system-ui, sans-serif";
-        ctx.fillText("Fan-made  ·  Not affiliated with Supercell", W/2, H - 56);
-        ctx.fillStyle = "rgba(245,197,66,0.55)";
-        ctx.font = "700 14px Inter, system-ui, sans-serif";
-        ctx.fillText("build-a-card", W/2, H - 34);
+        ctx.fillStyle = "rgba(139,155,184,0.7)";
+        ctx.font = "600 15px Inter, system-ui, sans-serif";
+        ctx.fillText("Fan-made · Not affiliated with Supercell", W / 2, H - 72);
+        ctx.fillStyle = "rgba(245,197,66,0.85)";
+        ctx.font = "700 20px Inter, system-ui, sans-serif";
+        ctx.fillText("Build A Card", W / 2, H - 44);
 
         var safe = name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "card";
         var a = document.createElement("a");
@@ -7780,37 +7848,9 @@ function gradeClass(g) { return "grade-" + g; }
         console.error(err);
         alert("Could not export card image.");
       }
-
-      function roundRect(ctx, x, y, w, h, r) {
-        var rr = Math.min(r, w / 2, h / 2);
-        ctx.beginPath();
-        ctx.moveTo(x + rr, y);
-        ctx.arcTo(x + w, y, x + w, y + h, rr);
-        ctx.arcTo(x + w, y + h, x, y + h, rr);
-        ctx.arcTo(x, y + h, x, y, rr);
-        ctx.arcTo(x, y, x + w, y, rr);
-        ctx.closePath();
-      }
-      function fitText(ctx, text, x, y, maxW, size) {
-        var s = size;
-        ctx.font = "800 " + s + "px Inter, system-ui, sans-serif";
-        while (s > 22 && ctx.measureText(text).width > maxW) {
-          s -= 2;
-          ctx.font = "800 " + s + "px Inter, system-ui, sans-serif";
-        }
-        ctx.fillText(text, x, y);
-      }
-      function gradeColor(g) {
-        var n = Number(g);
-        if (n >= 9) return { bg: "rgba(252,129,129,0.2)", border: "#fc8181", fg: "#fc8181" };
-        if (n >= 7) return { bg: "rgba(246,173,85,0.2)", border: "#f6ad55", fg: "#f6ad55" };
-        if (n >= 5) return { bg: "rgba(77,163,255,0.18)", border: "#4da3ff", fg: "#4da3ff" };
-        if (n >= 3) return { bg: "rgba(160,174,192,0.18)", border: "#a0aec0", fg: "#a0aec0" };
-        return { bg: "rgba(139,155,184,0.12)", border: "#8b9bb8", fg: "#8b9bb8" };
-      }
     }
 
-document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("settingsBtn").addEventListener("click", function(e) {
         if (document.body.classList.contains("ranked-lock") || (mp && mp.ranked && !mp.resultShown)) {
           e.preventDefault();
