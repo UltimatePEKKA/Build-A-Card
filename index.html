@@ -481,6 +481,7 @@
       flex-shrink: 0; border: 1px solid currentColor;
     }
     body.show-grades .build-item .mini-grade { display: inline-block; }
+    .result-stats .mini-grade { display: inline-block !important; }
     .result-card {
       background: linear-gradient(180deg, rgba(26, 35, 64, 0.5), rgba(18, 25, 43, 0.98));
       border: 1px solid var(--border); border-radius: var(--radius);
@@ -4661,15 +4662,45 @@ function gradeClass(g) { return "grade-" + g; }
     }
 
     function renderDeck(build) {
-      var result = buildBestDeck(build);
-      var coolName = describeBuildTitle(build);
-      document.getElementById("deckArch").textContent = coolName;
-      document.getElementById("deckWhy").textContent = describeDeckFromCards(result.deck, coolName);
+      build = build || {};
+      var result;
+      try {
+        result = buildBestDeck(build);
+      } catch (eBD) {
+        console.warn("buildBestDeck", eBD);
+        result = null;
+      }
+      if (!result || !Array.isArray(result.deck) || !result.deck.length) {
+        result = {
+          deck: [
+            { name: "Hog Rider", slug: "hog-rider", elixir: 4, role: "normal", isYou: false },
+            { name: "Musketeer", slug: "musketeer", elixir: 4, role: "normal", isYou: false },
+            { name: "Cannon", slug: "cannon", elixir: 3, role: "normal", isYou: false },
+            { name: "Ice Spirit", slug: "ice-spirit", elixir: 1, role: "normal", isYou: false },
+            { name: "Skeletons", slug: "skeletons", elixir: 1, role: "normal", isYou: false },
+            { name: "Fireball", slug: "fireball", elixir: 4, role: "normal", isYou: false },
+            { name: "The Log", slug: "the-log", elixir: 2, role: "normal", isYou: false },
+            { name: "Your Card", slug: "you", elixir: 3, role: "normal", isYou: true }
+          ]
+        };
+      }
+      var coolName = "Ladder Flex";
+      try { coolName = describeBuildTitle(build) || coolName; } catch (eT) {}
+      var why = "A balanced shell that leaves room for your card as a flex pick.";
+      try { why = describeDeckFromCards(result.deck, coolName) || why; } catch (eW) {}
+      try {
+        var da = document.getElementById("deckArch");
+        if (da) da.textContent = coolName;
+        var dw = document.getElementById("deckWhy");
+        if (dw) dw.textContent = why;
+      } catch (eL) {}
 
       var grid = document.getElementById("deckGrid");
+      if (!grid) return result;
       var html = "";
       var elixirSum = 0;
       result.deck.forEach(function(slot) {
+        if (!slot) return;
         elixirSum += Number(slot.elixir) || 3;
         var cls = "deck-slot";
         if (slot.isYou) cls += " you-slot";
@@ -4719,7 +4750,7 @@ function gradeClass(g) { return "grade-" + g; }
           var rest = urls.slice(1).join("|");
           // If all special arts fail, demote to normal art + plain name (no fake Hero/Evo label)
           var onerr = "var f=(this.getAttribute(\'data-fallbacks\')||\'\').split(\'|\').filter(Boolean);if(f.length){this.setAttribute(\'data-fallbacks\',f.slice(1).join(\'|\'));this.src=f[0];}else{var r=this.getAttribute(\'data-role\');if(r===\'evo\'||r===\'hero\'){this.setAttribute(\'data-role\',\'normal\');var p=this.parentElement;if(p){p.className=p.className.replace(/\\bevo-slot\\b/g,\'\').replace(/\\bhero-slot\\b/g,\'\');var lb=p.querySelector(\'.slot-label\');if(lb)lb.textContent=this.getAttribute(\'data-basename\')||\'\';}var slug=this.getAttribute(\'data-slug\')||\'\';this.onerror=function(){this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'flex\';};this.src=\'https://royaleapi.github.io/cr-api-assets/cards-150/\'+slug+\'.png\';}else{this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'flex\';}}";
-          inner = '<img src="' + first + '" alt="' + slot.name + '" data-fallbacks="' + rest + '" data-role="' + role + '" data-slug="' + (slot.slug || "") + '" data-basename="' + slot.name.replace(/"/g, '') + '" referrerpolicy="no-referrer" onerror="' + onerr + '" />' +
+          inner = '<img src="' + first + '" alt="' + slot.name + '" data-fallbacks="' + rest + '" data-role="' + role + '" data-slug="' + (slot.slug || "") + '" data-basename="' + String(slot.name || slot.slug || '').replace(/"/g, '') + '" referrerpolicy="no-referrer" onerror="' + onerr + '" />' +
             '<div class="slot-fallback" style="display:none;background:#3b82f6">' + (slot.name.charAt(0) || "?") + '</div>';
           slot.role = role;
         }
@@ -4730,9 +4761,12 @@ function gradeClass(g) { return "grade-" + g; }
         else label = slot.name; // plain name — never fake Hero/Evo
         html += '<div class="' + cls + '">' + inner + '<div class="slot-label">' + label + '</div></div>';
       });
-      grid.innerHTML = html;
-      var avg = (elixirSum / 8).toFixed(1);
-      document.getElementById("deckElixir").textContent = "Average elixir ≈ " + avg;
+      grid.innerHTML = html || '<div style="color:var(--muted);padding:12px">Deck preview unavailable</div>';
+      var avg = (elixirSum / Math.max(1, result.deck.length)).toFixed(1);
+      try {
+        var de = document.getElementById("deckElixir");
+        if (de) de.textContent = "Average elixir ≈ " + avg;
+      } catch (eEl) {}
       return result;
     }
 
@@ -5311,7 +5345,118 @@ function gradeClass(g) { return "grade-" + g; }
 
     function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-    function finishBuild() {
+    
+    /** Always fill the result screen: stats, report, flavor, deck, leaderboard snippet. */
+    function paintResultUI(score, tier, tierClass, report, flavor, build) {
+      build = build || (state && state.build) || {};
+      score = (score != null) ? score : 50;
+      tier = tier || "C-Tier · Playable";
+      tierClass = tierClass || "tier-c";
+      report = report || "Card complete.";
+      flavor = flavor || "";
+
+      try {
+        var ps = document.getElementById("powerScore");
+        if (ps) ps.textContent = String(score);
+      } catch (e0) {}
+      try {
+        var tag = document.getElementById("tierTag");
+        if (tag) {
+          tag.textContent = tier;
+          tag.className = "tier-tag " + tierClass;
+        }
+      } catch (e1) {}
+
+      // Stats rows — never throw
+      try {
+        var statsHtml = "";
+        for (var i = 0; i < CATEGORIES.length; i++) {
+          var cat = CATEGORIES[i];
+          var e = build[cat.key];
+          if (!e || typeof e !== "object") {
+            e = { value: cat.key === "special" ? "None" : (cat.key === "speed" || cat.key === "range" ? "—" : 0), source: "Unknown", grade: 5 };
+          }
+          var formatted = "—";
+          try {
+            if (typeof cat.format === "function") formatted = cat.format(e.value);
+            else formatted = String(e.value != null ? e.value : "—");
+          } catch (fe) {
+            try { formatted = String(e.value != null ? e.value : "—"); } catch (fe2) { formatted = "—"; }
+          }
+          var src = (e.source != null && e.source !== "") ? String(e.source) : "?";
+          var gr = (typeof e.grade === "number" && e.grade > 0) ? e.grade : 5;
+          var gCls = "grade-5";
+          try { gCls = gradeClass(gr); } catch (eG) {}
+          statsHtml += '<div class="row"><span>' + cat.label + '</span><span class="mid">' +
+            formatted + ' <small style="color:var(--gold-dim)">(' + src.replace(/</g, "&lt;") + ')</small></span>' +
+            '<span class="mini-grade ' + gCls + '" style="display:inline-block">' + gr + '/10</span></div>';
+        }
+        var rs = document.getElementById("resultStats");
+        if (rs) {
+          rs.innerHTML = statsHtml || '<div class="row"><span>Stats</span><span class="mid">Unavailable</span></div>';
+          rs.style.display = "";
+        }
+      } catch (eStats) {
+        console.warn("paintResultUI stats", eStats);
+        try {
+          var rsE = document.getElementById("resultStats");
+          if (rsE) rsE.innerHTML = '<div class="row"><span>Stats</span><span class="mid">Could not render</span></div>';
+        } catch (eS2) {}
+      }
+
+      try {
+        var ar = document.getElementById("arenaReport");
+        if (ar) ar.textContent = report;
+      } catch (e2) {}
+      try {
+        var fl = document.getElementById("flavorLine");
+        if (fl) fl.textContent = flavor;
+      } catch (e3) {}
+
+      // Best deck
+      try {
+        if (typeof renderDeck === "function") renderDeck(build);
+      } catch (deckErr) {
+        console.warn("paintResultUI deck", deckErr);
+        try {
+          var da = document.getElementById("deckArch");
+          var dw = document.getElementById("deckWhy");
+          var dg = document.getElementById("deckGrid");
+          var de = document.getElementById("deckElixir");
+          if (da) da.textContent = "Custom Shell";
+          if (dw) dw.textContent = "Your card as a flex slot in a balanced ladder deck.";
+          if (dg) {
+            // Minimal 8-slot fallback so the section is never blank
+            var fallbackSlugs = ["hog-rider", "musketeer", "cannon", "ice-spirit", "skeletons", "fireball", "the-log", "you"];
+            var html = "";
+            for (var fi = 0; fi < 8; fi++) {
+              if (fi === 7) {
+                html += '<div class="deck-slot you-slot"><div class="slot-fallback" style="background:linear-gradient(160deg,#c9a227,#f5c542);color:#1a1200">YOU</div><div class="slot-label">Your Card</div></div>';
+              } else {
+                var slug = fallbackSlugs[fi];
+                var nm = slug.replace(/-/g, " ").replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                html += '<div class="deck-slot"><div class="slot-fallback" style="background:#1a2340;color:#eef2ff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">' +
+                  nm.split(" ").map(function(w){return w[0];}).join("") + '</div><div class="slot-label">' + nm + '</div></div>';
+              }
+            }
+            dg.innerHTML = html;
+          }
+          if (de) de.textContent = "Average elixir ≈ 3.5";
+        } catch (eFb) {}
+      }
+
+      // Leaderboard tables on result + main LB
+      try {
+        if (state && state.daily) lastLbMode = "daily";
+        if (typeof renderLeaderboard === "function") {
+          renderLeaderboard(lastLbSort || "rating", { highlightId: window._lastLbId || (state && state._lastLbId) });
+        }
+      } catch (eLb) {
+        console.warn("paintResultUI lb", eLb);
+      }
+    }
+
+function finishBuild() {
       if (state && state._finishing) return;
       if (state) state._finishing = true;
       try { showDailySwitchOverlay(false); } catch (eO) {}
@@ -5450,122 +5595,68 @@ function gradeClass(g) { return "grade-" + g; }
           if (dmg >= 1200) report += " One-shot energy is very real.";
         } catch (eRep) {}
 
-        var ps = document.getElementById("powerScore");
-        if (ps) ps.textContent = score;
-        var tag = document.getElementById("tierTag");
-        if (tag) {
-          tag.textContent = tier;
-          tag.className = "tier-tag " + tierClass;
-        }
-
-        var statsHtml = "";
-        for (var i = 0; i < CATEGORIES.length; i++) {
-          var cat = CATEGORIES[i];
-          var e = b[cat.key];
-          var formatted = "—";
-          try { formatted = cat.format(e.value); } catch (fe) { formatted = String(e.value); }
-          statsHtml += '<div class="row"><span>' + cat.label + '</span><span class="mid">' +
-            formatted + ' <small style="color:var(--gold-dim)">(' + (e.source || "?") + ')</small></span>' +
-            '<span class="mini-grade ' + gradeClass(e.grade || 5) + '" style="display:inline-block">' + (e.grade || 5) + '/10</span></div>';
-        }
-        var rs = document.getElementById("resultStats");
-        if (rs) rs.innerHTML = statsHtml;
-        var ar = document.getElementById("arenaReport");
-        if (ar) ar.textContent = report;
-        var fl = document.getElementById("flavorLine");
-        if (fl) fl.textContent = flavor;
-
-        try {
-          renderDeck(b);
-        } catch (deckErr) {
-          console.warn("renderDeck", deckErr);
-          try {
-            var da = document.getElementById("deckArch");
-            var dw = document.getElementById("deckWhy");
-            var dg = document.getElementById("deckGrid");
-            var de = document.getElementById("deckElixir");
-            if (da) da.textContent = "Custom Shell";
-            if (dw) dw.textContent = "Deck suggestion unavailable — try drafting again.";
-            if (dg) dg.innerHTML = "";
-            if (de) de.textContent = "";
-          } catch (eFb) {}
-        }
-
-        var nameInput = document.getElementById("cardNameInput");
-        if (nameInput) nameInput.value = "";
-        var nameErr = document.getElementById("nameError");
-        if (nameErr) nameErr.textContent = "";
+        // Persist pending for name / export
         state._pendingScore = score;
         state._pendingBuild = b;
-
         try {
           var listAfter = (state.daily)
             ? addDailyLeaderboardEntry(score, b, null)
             : addLeaderboardEntry(score, b, null);
           var newest = null;
-          for (var li = 0; li < listAfter.length; li++) {
-            if (!newest || (listAfter[li].date > newest.date)) newest = listAfter[li];
+          if (listAfter && listAfter.length) {
+            for (var li = 0; li < listAfter.length; li++) {
+              if (!newest || (listAfter[li].date > newest.date)) newest = listAfter[li];
+            }
           }
           state._lastLbId = newest ? newest.id : null;
           try { window._lastLbId = state._lastLbId; } catch (eW) {}
           var titleEl = document.querySelector(".result-title");
           if (titleEl && newest) titleEl.textContent = (newest.label || "CARD COMPLETE").toUpperCase();
           else if (titleEl) titleEl.textContent = "CARD COMPLETE";
-          if (nameInput && newest) nameInput.placeholder = newest.label || "Name your card…";
+          var nameInput0 = document.getElementById("cardNameInput");
+          if (nameInput0 && newest) nameInput0.placeholder = newest.label || "Name your card…";
+          if (newest) {
+            try {
+              var arRank = null;
+              // rank computed after paint
+              state._youRankHint = true;
+            } catch (eR) {}
+          }
         } catch (lbErr) {
           console.warn("leaderboard", lbErr);
           var titleEl2 = document.querySelector(".result-title");
           if (titleEl2) titleEl2.textContent = "CARD COMPLETE";
         }
 
+        // Single robust paint path
+        paintResultUI(score, tier, tierClass, report, flavor, b);
+
         try {
-          var youRank = 0;
-          try {
-            if (state.daily) lastLbMode = "daily";
-            renderLeaderboard(lastLbSort || "rating", { highlightId: window._lastLbId || state._lastLbId });
+          if (state._youRankHint) {
             var listTmp = dedupeLeaderboard(loadLeaderboard()).slice().sort(lbCompare);
             var hid = window._lastLbId || state._lastLbId;
+            var youRank = 0;
             if (hid) {
               for (var yi = 0; yi < listTmp.length; yi++) {
                 if (String(listTmp[yi].id) === String(hid)) { youRank = yi + 1; break; }
               }
             }
-          } catch (eRL) {}
-          if (youRank && ar) {
-            ar.textContent += " Ranked #" + youRank + " on the site leaderboard.";
-          } else if (ar) {
-            ar.textContent += " Saved to the site leaderboard.";
+            var ar = document.getElementById("arenaReport");
+            if (ar) {
+              if (youRank) ar.textContent = (ar.textContent || report) + " Ranked #" + youRank + " on the site leaderboard.";
+              else ar.textContent = (ar.textContent || report) + " Saved to the site leaderboard.";
+            }
           }
         } catch (metaErr) {
           console.warn("meta table", metaErr);
         }
       } catch (err) {
         console.error("finishBuild error", err);
-        var ps2 = document.getElementById("powerScore");
-        if (ps2) ps2.textContent = score;
-        var tag2 = document.getElementById("tierTag");
-        if (tag2) { tag2.textContent = tier; tag2.className = "tier-tag " + tierClass; }
-        var ar2 = document.getElementById("arenaReport");
-        if (ar2) ar2.textContent = report;
-        var fl2 = document.getElementById("flavorLine");
-        if (fl2) fl2.textContent = flavor;
-        // Still try to paint stats + deck so the result page is never blank
         try {
-          var b2 = (state && state.build) ? state.build : {};
-          var statsHtml2 = "";
-          for (var si = 0; si < CATEGORIES.length; si++) {
-            var cat2 = CATEGORIES[si];
-            var e2 = b2[cat2.key] || { value: "—", source: "?", grade: 5 };
-            var formatted2 = "—";
-            try { formatted2 = cat2.format(e2.value); } catch (fe2) { formatted2 = String(e2.value); }
-            statsHtml2 += '<div class="row"><span>' + cat2.label + '</span><span class="mid">' +
-              formatted2 + ' <small style="color:var(--gold-dim)">(' + (e2.source || "?") + ')</small></span>' +
-              '<span class="mini-grade ' + gradeClass(e2.grade || 5) + '" style="display:inline-block">' + (e2.grade || 5) + '/10</span></div>';
-          }
-          var rs2 = document.getElementById("resultStats");
-          if (rs2) rs2.innerHTML = statsHtml2;
-        } catch (eStats) {}
-        try { renderDeck((state && state.build) || {}); } catch (eDeck2) {}
+          paintResultUI(score, tier, tierClass, report, flavor, (state && state.build) || {});
+        } catch (ePaint) {
+          console.warn("paintResultUI failed", ePaint);
+        }
       }
 
       try {
@@ -5581,23 +5672,30 @@ function gradeClass(g) { return "grade-" + g; }
         }
       } catch (mpE) {}
       showScreen("screen-result");
+      // Re-paint after screen is visible (guards against any missed DOM updates)
+      try {
+        paintResultUI(score, tier, tierClass, report, flavor, (state && state.build) || {});
+      } catch (eRepaint) {}
       try {
         var nameInput = document.getElementById("cardNameInput");
         var nameHint = document.querySelector(".name-hint");
+        var draftBtn = document.getElementById("btnDraftAgain");
+        var homeBtn = document.getElementById("btnHome");
+        var lbBtn = document.getElementById("btnResultLb");
         if (state && state.daily) {
-          var uname = state.dailyUsername || (rankedLoadProfile() && rankedLoadProfile().username) || "";
+          var uname = state.dailyUsername || "";
+          try {
+            if (!uname && typeof rankedLoadProfile === "function") {
+              var rp = rankedLoadProfile();
+              if (rp && rp.username) uname = rp.username;
+            }
+          } catch (eU) {}
           if (nameInput) {
             nameInput.value = uname;
             nameInput.readOnly = true;
             nameInput.placeholder = "Ranked username";
           }
           if (nameHint) nameHint.textContent = "Daily runs use your ranked username on the leaderboard.";
-
-      try {
-        var draftBtn = document.getElementById("btnDraftAgain");
-        var homeBtn = document.getElementById("btnHome");
-        var lbBtn = document.getElementById("btnResultLb");
-        if (state && state.daily) {
           if (draftBtn) draftBtn.style.display = "none";
           if (homeBtn) {
             homeBtn.style.display = "";
@@ -5605,7 +5703,14 @@ function gradeClass(g) { return "grade-" + g; }
             homeBtn.className = "btn btn-primary";
           }
           if (lbBtn) lbBtn.style.display = "";
+          var titleEl = document.querySelector(".result-title");
+          if (titleEl && uname) titleEl.textContent = uname.toUpperCase();
         } else {
+          if (nameInput) {
+            nameInput.readOnly = false;
+            if (!nameInput.placeholder) nameInput.placeholder = "Name your card…";
+          }
+          if (nameHint) nameHint.textContent = "Letters, numbers, spaces · 3–20 chars · English only · no links";
           if (draftBtn) {
             draftBtn.style.display = "";
             draftBtn.textContent = "Draft Again";
@@ -5615,15 +5720,6 @@ function gradeClass(g) { return "grade-" + g; }
             homeBtn.textContent = "Home";
             homeBtn.className = "btn btn-secondary";
           }
-        }
-      } catch (eDailyBtn) {}
-
-          var titleEl = document.querySelector(".result-title");
-          if (titleEl && uname) titleEl.textContent = uname.toUpperCase();
-        } else if (nameInput) {
-          nameInput.readOnly = false;
-          nameInput.placeholder = "Name your card…";
-          if (nameHint) nameHint.textContent = "Letters, numbers, spaces · 3–20 chars · English only · no links";
         }
       } catch (eName) {}
       try { window.scrollTo(0, 0); } catch (sc) {}
