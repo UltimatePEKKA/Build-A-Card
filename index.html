@@ -1434,7 +1434,7 @@
           <button class="btn btn-primary" id="btnMpQueueAgain" type="button">Play Again</button>
           <button class="btn btn-secondary" id="btnMpHome" type="button">Menu</button>
           <button class="btn btn-secondary" id="btnMpViewCard" type="button">View My Card</button>
-          <button class="btn btn-secondary" id="btnMpRematch" type="button">Casual Lobby</button>
+          <button class="btn btn-primary" id="btnMpRematch" type="button">Rematch</button>
         </div>
       </div>
     </section>
@@ -1555,6 +1555,7 @@
         </div>
         <div class="actions">
           <button class="btn btn-primary" id="btnDraftAgain" type="button">Draft Again</button>
+          <button class="btn btn-secondary" id="btnExportCard" type="button">Export Card Image</button>
           <button class="btn btn-secondary" id="btnResultLb" type="button">Leaderboard</button>
           <button class="btn btn-secondary" id="btnHome" type="button">Home</button>
         </div>
@@ -2011,7 +2012,69 @@
       // Fallback (should not hit for normal categories)
       return 5;
     }
-    function gradeClass(g) { return "grade-" + g; }
+    
+function gradeClass(g) { return "grade-" + g; }
+
+    /** Shared power rating (out of 99). 66/70 grade sum is the 99 bar. */
+    function computePowerFromBuild(b) {
+      if (!b) return 50;
+      var grades = [];
+      for (var i = 0; i < CATEGORIES.length; i++) {
+        var g = b[CATEGORIES[i].key] && b[CATEGORIES[i].key].grade;
+        grades.push((typeof g === "number" && g > 0) ? g : 5);
+      }
+      var sumG = 0;
+      for (var i = 0; i < grades.length; i++) sumG += grades[i];
+      var minG = Math.min.apply(null, grades);
+      var score;
+      if (sumG >= 66) {
+        score = 99;
+      } else if (sumG >= 50) {
+        score = 99 - (66 - sumG);
+      } else {
+        score = 83 - (50 - sumG) * 1.5;
+      }
+      if (minG <= 2) score -= 3;
+      else if (minG <= 3) score -= 1;
+      var hp = (b.hp && b.hp.value) || 0;
+      var dmg = (b.dmg && b.dmg.value) || 0;
+      var el = (b.elixir && b.elixir.value) || 5;
+      if (el >= 8) score -= 2;
+      if (el >= 9) score -= 1;
+      if (hp > 3500 && dmg < 150) score -= 2;
+      if (dmg >= 1000 && hp > 0 && hp < 400) score -= 2;
+      if (sumG < 66) score = Math.min(98, score);
+      if (sumG < 65) score = Math.min(97, score);
+      return Math.max(30, Math.min(99, Math.round(score)));
+    }
+
+    /** Re-rate a leaderboard entry from stored category grades (new 66/70 system). */
+    function rescoreLbEntry(e) {
+      if (!e) return e;
+      var stats = e.stats;
+      if (!stats) return e;
+      var hasGrade = false;
+      for (var i = 0; i < CATEGORIES.length; i++) {
+        var s = stats[CATEGORIES[i].key];
+        if (s && typeof s.grade === "number") { hasGrade = true; break; }
+      }
+      if (!hasGrade) return e;
+      var rating = computePowerFromBuild(stats);
+      e.rating = rating;
+      if (typeof projectedWinFromScore === "function") {
+        try { e.win = projectedWinFromScore(rating); } catch (eW) {}
+      }
+      try { e._hr = hiddenCategoryRank(stats); } catch (eH) {}
+      return e;
+    }
+
+    function rescoreLeaderboardList(list) {
+      return (list || []).map(function(raw) {
+        var e = normalizeLbEntry ? normalizeLbEntry(raw) : raw;
+        if (!e) return null;
+        return rescoreLbEntry(e);
+      }).filter(Boolean);
+    }
     function rarityClass(r) { return "rarity-" + r.toLowerCase(); }
     function rarityColor(r) {
       var map = { Common: "#6b7280", Rare: "#3b82f6", Epic: "#8b5cf6", Legendary: "#f59e0b", Champion: "#ef4444" };
@@ -3112,7 +3175,12 @@
         var all = raw ? JSON.parse(raw) : {};
         if (!all || typeof all !== "object") all = {};
         var list = all[dateKey] || [];
-        return Array.isArray(list) ? list : [];
+        if (!Array.isArray(list)) list = [];
+        // Rescore daily entries to current power formula
+        list = list.map(function(e) {
+          try { return typeof normalizeLbEntry === "function" ? normalizeLbEntry(e) : e; } catch (err) { return e; }
+        }).filter(Boolean);
+        return list;
       } catch (e) { return []; }
     }
 
@@ -4688,13 +4756,27 @@
       try {
         var raw = localStorage.getItem(LB_KEY);
         var list = raw ? JSON.parse(raw) : [];
-        return Array.isArray(list) ? list : [];
+        if (!Array.isArray(list)) list = [];
+        // One-time rescore under the 66/70 power system
+        if (list.length && localStorage.getItem("bac-lb-rescored-v66") !== "1") {
+          list = list.map(function(e) {
+            try { return typeof normalizeLbEntry === "function" ? normalizeLbEntry(e) : e; } catch (err) { return e; }
+          }).filter(Boolean);
+          try {
+            localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0, 100)));
+            localStorage.setItem("bac-lb-rescored-v66", "1");
+          } catch (eS) {}
+        }
+        return list;
       } catch (e) { return []; }
     }
 
     function saveLeaderboard(list) {
       try {
-        localStorage.setItem(LB_KEY, JSON.stringify((list || []).slice(0, 100)));
+        var scored = (list || []).map(function(e) {
+          try { return typeof normalizeLbEntry === "function" ? normalizeLbEntry(e) : e; } catch (err) { return e; }
+        }).filter(Boolean);
+        localStorage.setItem(LB_KEY, JSON.stringify(scored.slice(0, 100)));
       } catch (e) {}
     }
 
@@ -4759,10 +4841,28 @@
       var stats = e.stats || null;
       var fp = e.fp || buildFingerprint(stats);
       var hr = e._hr != null ? Number(e._hr) : hiddenCategoryRank(stats);
+      var rating = Math.max(0, Math.min(99, Number(e.rating) || 0));
+      // Re-apply current power formula whenever grades are stored
+      if (stats && typeof computePowerFromBuild === "function") {
+        var hasGrade = false;
+        try {
+          for (var ci = 0; ci < CATEGORIES.length; ci++) {
+            var st = stats[CATEGORIES[ci].key];
+            if (st && typeof st.grade === "number") { hasGrade = true; break; }
+          }
+        } catch (eG) {}
+        if (hasGrade) {
+          rating = computePowerFromBuild(stats);
+          if (typeof projectedWinFromScore === "function") {
+            try { win = projectedWinFromScore(rating); } catch (eW) {}
+          }
+          try { hr = hiddenCategoryRank(stats); } catch (eH) {}
+        }
+      }
       return {
         id: String(e.id || (Date.now() + "-" + Math.floor(Math.random() * 9999))),
         label: String(e.label || "Custom").slice(0, 24),
-        rating: Math.max(0, Math.min(99, Number(e.rating) || 0)),
+        rating: rating,
         win: Math.round(win * 10) / 10,
         date: e.date || new Date().toISOString(),
         elixir: e.elixir != null ? e.elixir : null,
@@ -5232,41 +5332,7 @@
         }
         state.build = b;
 
-        var grades = [];
-        for (var i = 0; i < CATEGORIES.length; i++) {
-          var g = b[CATEGORIES[i].key] && b[CATEGORIES[i].key].grade;
-          grades.push((typeof g === "number" && g > 0) ? g : 5);
-        }
-        var sumG = 0;
-        for (var i = 0; i < grades.length; i++) sumG += grades[i];
-        var avg = sumG / grades.length;
-        var minG = Math.min.apply(null, grades);
-        var maxG = Math.max.apply(null, grades);
-        // Target: screenshot-like builds (~55/70, several 9s + a 10) land ~95–96.
-        // Perfect 70/70 still reaches 99. Weak drafts stay mid/low.
-        // Harsher rating from grade sum (max 70):
-        // 68 → 99 | 67 → 98 | … −1 per sum point down to 50 → 81
-        // Below 50: −1.5 power per missing sum point
-        if (sumG >= 68) {
-          score = 99;
-        } else if (sumG >= 50) {
-          score = 99 - (68 - sumG); // 67→98 … 50→81
-        } else {
-          score = 81 - (50 - sumG) * 1.5;
-        }
-        if (minG <= 2) score -= 3;
-        else if (minG <= 3) score -= 1;
-        var hp = (b.hp && b.hp.value) || 0;
-        var dmg = (b.dmg && b.dmg.value) || 0;
-        var el = (b.elixir && b.elixir.value) || 5;
-        if (el >= 8) score -= 2;
-        if (el >= 9) score -= 1;
-        if (hp > 3500 && dmg < 150) score -= 2;
-        if (dmg >= 1000 && hp > 0 && hp < 400) score -= 2;
-        // Never award 99 without ≥68/70
-        if (sumG < 68) score = Math.min(98, score);
-        if (sumG < 67) score = Math.min(97, score);
-        score = Math.max(30, Math.min(99, Math.round(score)));
+        score = computePowerFromBuild(b);
 
         if (score >= 93) {
           tier = "S-Tier · Broken"; tierClass = "tier-s";
@@ -6282,20 +6348,23 @@
       setTimeout(pushFinal, 400);
       setTimeout(pushFinal, 1200);
       setTimeout(pushFinal, 2500);
-      // Tear down room after peer has had time to receive results
-      setTimeout(function() {
-        try { mpStopPresence(); } catch (eP) {}
-        try {
-          if (mp.client) {
-            mp.client.removeAllListeners();
-            mp.client.end(true);
-          }
-        } catch (eC) {}
-        mp.client = null;
-        mp.connecting = false;
-        mp.topic = null;
-        ranked._bridgeSend = null;
-      }, 6000);
+      // Ranked: tear down room after peer has had time to receive results.
+      // Casual 1v1: keep the MQTT room open so Rematch works.
+      if (mp.ranked) {
+        setTimeout(function() {
+          try { mpStopPresence(); } catch (eP) {}
+          try {
+            if (mp.client) {
+              mp.client.removeAllListeners();
+              mp.client.end(true);
+            }
+          } catch (eC) {}
+          mp.client = null;
+          mp.connecting = false;
+          mp.topic = null;
+          ranked._bridgeSend = null;
+        }, 6000);
+      }
 
       var rematchBtn = document.getElementById("btnMpRematch");
       var queueBtn = document.getElementById("btnMpQueueAgain");
@@ -6315,12 +6384,18 @@
         // End screen only — never auto-queue
         showScreen("screen-mp-result");
       } else {
-        if (rematchBtn) rematchBtn.style.display = "";
+        // Casual 1v1: Rematch = play again vs same opponent (room stays open)
+        if (rematchBtn) {
+          rematchBtn.style.display = "";
+          rematchBtn.textContent = "Rematch";
+          rematchBtn.className = "btn btn-primary";
+        }
         if (queueBtn) queueBtn.style.display = "none";
         if (homeBtn) {
           homeBtn.style.display = "";
           homeBtn.textContent = "Home";
         }
+        if (viewBtn) viewBtn.style.display = "";
         showScreen("screen-result");
         setTimeout(function() { showScreen("screen-mp-result"); }, 900);
       }
@@ -6557,11 +6632,36 @@
       };
     }
 
-    /** Merge remote users into ranked.users — newer updated timestamp wins per username. */
+    var RANKED_USERS_CACHE_KEY = "bac-ranked-users-cache-v1";
+
+    function rankedLoadUsersCache() {
+      try {
+        var raw = localStorage.getItem(RANKED_USERS_CACHE_KEY);
+        if (!raw) return;
+        var map = JSON.parse(raw);
+        if (!map || typeof map !== "object") return;
+        rankedMergeUsers(map);
+      } catch (e) {}
+    }
+
+    function rankedSaveUsersCache() {
+      try {
+        var out = {};
+        Object.keys(ranked.users || {}).forEach(function(k) {
+          var u = rankedNormalizeUser(ranked.users[k]);
+          if (u) out[u.username.toLowerCase()] = u;
+        });
+        localStorage.setItem(RANKED_USERS_CACHE_KEY, JSON.stringify(out));
+      } catch (e) {}
+    }
+
+    /** Merge remote users into ranked.users — newer updated timestamp wins per username. Never drops known users. */
     function rankedMergeUsers(remoteMap) {
       if (!remoteMap || typeof remoteMap !== "object") return;
       Object.keys(remoteMap).forEach(function(k) {
-        var incoming = rankedNormalizeUser(remoteMap[k]);
+        var incoming = rankedNormalizeUser(remoteMap[k] || remoteMap);
+        // Also accept values keyed oddly
+        if (!incoming && remoteMap[k]) incoming = rankedNormalizeUser(remoteMap[k]);
         if (!incoming) return;
         var key = incoming.username.toLowerCase();
         var prev = ranked.users[key];
@@ -6574,14 +6674,20 @@
         if (nextUp > prevUp) {
           ranked.users[key] = incoming;
         } else if (nextUp === prevUp) {
-          // Same timestamp: keep the higher trophy count (more progress)
+          // Same timestamp: keep the higher trophy count / more games
           if ((incoming.elo || 0) > (prev.elo || 0) ||
               ((incoming.elo || 0) === (prev.elo || 0) &&
                ((incoming.wins || 0) + (incoming.losses || 0)) > ((prev.wins || 0) + (prev.losses || 0)))) {
             ranked.users[key] = incoming;
           }
+        } else {
+          // Older remote entry: still keep higher elo if local looks stale-zero and remote has games
+          if ((prev.elo || 0) === 0 && (incoming.elo || 0) > 0) {
+            ranked.users[key] = incoming;
+          }
         }
       });
+      try { rankedSaveUsersCache(); } catch (eC) {}
     }
 
     /** If the network has a newer record for our username, adopt it locally. */
@@ -6640,17 +6746,31 @@
       // Don't clobber a newer network entry with an older local publish
       if (prev && (Number(prev.updated) || 0) > entry.updated) {
         entry = rankedNormalizeUser(prev);
+        ranked.users[key] = entry;
       } else {
         ranked.users[key] = entry;
       }
+      try { rankedSaveUsersCache(); } catch (eC) {}
       rankedEnsureClient(function(c) {
         if (!c || !c.connected) return;
+        // Avoid overwriting the retained board with a partial map before first hydrate
+        if (!ranked._boardHydrated && !ranked._boardHydrateTimedOut) {
+          setTimeout(function() {
+            try { rankedPublishUser(p); } catch (eR) {}
+          }, 800);
+          return;
+        }
         try {
-          // Retained shared board — every device sees the same full user map
+          // Publish FULL merged map so other devices keep everyone
+          var payloadUsers = {};
+          Object.keys(ranked.users || {}).forEach(function(k) {
+            var u = rankedNormalizeUser(ranked.users[k]);
+            if (u) payloadUsers[u.username.toLowerCase()] = u;
+          });
           c.publish(RANKED_USERS_TOPIC, JSON.stringify({
             t: "users",
             ts: Date.now(),
-            users: ranked.users
+            users: payloadUsers
           }), { qos: 1, retain: true });
         } catch (e) {}
       });
@@ -6740,7 +6860,12 @@
             client.subscribe(RANKED_MATCH_TOPIC, { qos: 1 });
             try { client.subscribe(DAILY_LB_TOPIC_PREFIX + dailyDateKey(), { qos: 1 }); } catch (eDs) {}
           } catch (eSub) {}
+          try { rankedLoadUsersCache(); } catch (eCache) {}
+          // Wait for retained users board before first publish (prevents wiping peers)
+          ranked._boardHydrated = false;
+          ranked._boardHydrateTimedOut = false;
           setTimeout(function() {
+            ranked._boardHydrateTimedOut = true;
             try {
               rankedHydrateLocalFromNetwork();
               if (ranked.profile || rankedLoadProfile()) {
@@ -6748,7 +6873,7 @@
                 rankedPublishUser(ranked.profile);
               }
             } catch (eBoot) {}
-          }, 400);
+          }, 1500);
           flushCbs(client);
         });
 
@@ -6757,6 +6882,7 @@
             var data = JSON.parse(buf.toString());
             if (!data) return;
             if (topic === RANKED_USERS_TOPIC && data.t === "users" && data.users) {
+              ranked._boardHydrated = true;
               rankedMergeUsers(data.users);
               try { rankedHydrateLocalFromNetwork(); } catch (eH) {}
               try {
@@ -7023,7 +7149,7 @@
         }
       }
       list.sort(function(a, b) { return b.elo - a.elo || b.wins - a.wins; });
-      list = list.slice(0, 25);
+      list = list.slice(0, 75);
       if (!list.length) {
         body.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">No ranked players yet — be the first</td></tr>';
         return;
@@ -7043,6 +7169,7 @@
 
     function rankedShowScreen() {
       ranked.profile = rankedLoadProfile();
+      try { rankedLoadUsersCache(); } catch (eLc) {}
       rankedRenderUI();
       // Never leave a stale "Match found" banner when idle
       if (!ranked.queueing) rankedSetQueueStatus("");
@@ -7051,6 +7178,7 @@
         ranked.profile = ranked.profile || rankedLoadProfile();
         if (ranked.profile) rankedPublishUser(ranked.profile);
         rankedRenderUI();
+        try { rankedRenderLeaderboard(); } catch (eLb) {}
       });
       // Keep board + own trophies fresh while on this screen
       if (ranked._syncTimer) clearInterval(ranked._syncTimer);
@@ -7480,7 +7608,209 @@
     }
 
 
-    document.addEventListener("DOMContentLoaded", function() {
+    
+    function exportCardImage() {
+      try {
+        var b = (state && state.build) ? state.build : null;
+        if (!b) {
+          alert("Finish a draft first to export your card.");
+          return;
+        }
+        var nameEl = document.getElementById("cardNameInput");
+        var name = (nameEl && nameEl.value.trim()) || (state && state.cardName) || "Untitled Card";
+        name = String(name).slice(0, 22);
+        var score = 50;
+        try { score = computePowerFromBuild(b); } catch (e0) {
+          var ps = document.getElementById("powerScore");
+          if (ps) score = parseInt(ps.textContent, 10) || 50;
+        }
+        var tierEl = document.getElementById("tierTag");
+        var tier = (tierEl && tierEl.textContent) || "";
+        if (tier.length > 36) tier = tier.slice(0, 36);
+
+        var W = 720, H = 1100;
+        var canvas = document.createElement("canvas");
+        canvas.width = W;
+        canvas.height = H;
+        var ctx = canvas.getContext("2d");
+
+        // Background
+        var bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, "#0a0f1c");
+        bg.addColorStop(0.45, "#12192b");
+        bg.addColorStop(1, "#080c16");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        // Soft gold glow behind score
+        var glow = ctx.createRadialGradient(W/2, 210, 20, W/2, 210, 220);
+        glow.addColorStop(0, "rgba(245,197,66,0.28)");
+        glow.addColorStop(1, "rgba(245,197,66,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 40, W, 360);
+
+        // Outer frame
+        ctx.strokeStyle = "rgba(245,197,66,0.35)";
+        ctx.lineWidth = 3;
+        roundRect(ctx, 28, 28, W - 56, H - 56, 28);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(77,163,255,0.12)";
+        ctx.lineWidth = 1;
+        roundRect(ctx, 40, 40, W - 80, H - 80, 22);
+        ctx.stroke();
+
+        // Brand
+        ctx.fillStyle = "rgba(139,155,184,0.9)";
+        ctx.font = "600 18px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("BUILD-A-CARD  ·  CLASH ROYALE FAN", W/2, 78);
+
+        // Card name
+        ctx.fillStyle = "#eef2ff";
+        ctx.font = "800 42px Inter, system-ui, sans-serif";
+        fitText(ctx, name, W/2, 140, W - 120, 42);
+
+        // Power score
+        ctx.fillStyle = "#f5c542";
+        ctx.font = "800 120px Inter, system-ui, sans-serif";
+        ctx.fillText(String(score), W/2, 280);
+        ctx.fillStyle = "rgba(245,197,66,0.85)";
+        ctx.font = "700 22px Inter, system-ui, sans-serif";
+        ctx.fillText("POWER RATING  /  99", W/2, 320);
+
+        if (tier) {
+          ctx.fillStyle = "rgba(77,163,255,0.2)";
+          var tw = Math.min(420, ctx.measureText(tier).width + 48);
+          roundRect(ctx, (W - tw) / 2, 348, tw, 40, 12);
+          ctx.fill();
+          ctx.fillStyle = "#4da3ff";
+          ctx.font = "700 18px Inter, system-ui, sans-serif";
+          ctx.fillText(tier, W/2, 374);
+        }
+
+        // Stats panel
+        var panelY = 420;
+        var panelH = 520;
+        ctx.fillStyle = "rgba(26,35,64,0.85)";
+        roundRect(ctx, 64, panelY, W - 128, panelH, 18);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(44,58,92,0.9)";
+        ctx.lineWidth = 2;
+        roundRect(ctx, 64, panelY, W - 128, panelH, 18);
+        ctx.stroke();
+
+        var rowH = 68;
+        var startY = panelY + 36;
+        for (var i = 0; i < CATEGORIES.length; i++) {
+          var cat = CATEGORIES[i];
+          var entry = b[cat.key] || {};
+          var val = entry.value;
+          var src = entry.source || "—";
+          var grade = (typeof entry.grade === "number") ? entry.grade : "—";
+          var formatted = "—";
+          try {
+            if (typeof cat.format === "function") formatted = cat.format(val);
+            else formatted = String(val);
+          } catch (eF) { formatted = String(val != null ? val : "—"); }
+          if (String(formatted).length > 42) formatted = String(formatted).slice(0, 40) + "…";
+
+          var y = startY + i * rowH;
+          // row separator
+          if (i > 0) {
+            ctx.strokeStyle = "rgba(44,58,92,0.65)";
+            ctx.beginPath();
+            ctx.moveTo(88, y - 14);
+            ctx.lineTo(W - 88, y - 14);
+            ctx.stroke();
+          }
+
+          // label
+          ctx.textAlign = "left";
+          ctx.fillStyle = "#8b9bb8";
+          ctx.font = "600 15px Inter, system-ui, sans-serif";
+          ctx.fillText(cat.label.toUpperCase(), 96, y);
+
+          // value
+          ctx.fillStyle = "#eef2ff";
+          ctx.font = "700 22px Inter, system-ui, sans-serif";
+          ctx.fillText(String(formatted), 96, y + 28);
+
+          // source
+          ctx.fillStyle = "rgba(139,155,184,0.85)";
+          ctx.font = "600 14px Inter, system-ui, sans-serif";
+          var srcText = "from " + String(src);
+          if (srcText.length > 28) srcText = srcText.slice(0, 26) + "…";
+          ctx.fillText(srcText, 96, y + 48);
+
+          // grade badge
+          var gx = W - 96 - 52;
+          var gy = y + 4;
+          var gColor = gradeColor(grade);
+          ctx.fillStyle = gColor.bg;
+          roundRect(ctx, gx, gy, 52, 52, 12);
+          ctx.fill();
+          ctx.strokeStyle = gColor.border;
+          ctx.lineWidth = 2;
+          roundRect(ctx, gx, gy, 52, 52, 12);
+          ctx.stroke();
+          ctx.fillStyle = gColor.fg;
+          ctx.font = "800 22px Inter, system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(String(grade), gx + 26, gy + 34);
+          ctx.textAlign = "left";
+        }
+
+        // Footer
+        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(139,155,184,0.75)";
+        ctx.font = "600 16px Inter, system-ui, sans-serif";
+        ctx.fillText("Fan-made  ·  Not affiliated with Supercell", W/2, H - 56);
+        ctx.fillStyle = "rgba(245,197,66,0.55)";
+        ctx.font = "700 14px Inter, system-ui, sans-serif";
+        ctx.fillText("build-a-card", W/2, H - 34);
+
+        var safe = name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "card";
+        var a = document.createElement("a");
+        a.download = "build-a-card-" + safe + "-" + score + ".png";
+        a.href = canvas.toDataURL("image/png");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error(err);
+        alert("Could not export card image.");
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        var rr = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rr, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rr);
+        ctx.arcTo(x + w, y + h, x, y + h, rr);
+        ctx.arcTo(x, y + h, x, y, rr);
+        ctx.arcTo(x, y, x + w, y, rr);
+        ctx.closePath();
+      }
+      function fitText(ctx, text, x, y, maxW, size) {
+        var s = size;
+        ctx.font = "800 " + s + "px Inter, system-ui, sans-serif";
+        while (s > 22 && ctx.measureText(text).width > maxW) {
+          s -= 2;
+          ctx.font = "800 " + s + "px Inter, system-ui, sans-serif";
+        }
+        ctx.fillText(text, x, y);
+      }
+      function gradeColor(g) {
+        var n = Number(g);
+        if (n >= 9) return { bg: "rgba(252,129,129,0.2)", border: "#fc8181", fg: "#fc8181" };
+        if (n >= 7) return { bg: "rgba(246,173,85,0.2)", border: "#f6ad55", fg: "#f6ad55" };
+        if (n >= 5) return { bg: "rgba(77,163,255,0.18)", border: "#4da3ff", fg: "#4da3ff" };
+        if (n >= 3) return { bg: "rgba(160,174,192,0.18)", border: "#a0aec0", fg: "#a0aec0" };
+        return { bg: "rgba(139,155,184,0.12)", border: "#8b9bb8", fg: "#8b9bb8" };
+      }
+    }
+
+document.addEventListener("DOMContentLoaded", function() {
       document.getElementById("settingsBtn").addEventListener("click", function(e) {
         if (document.body.classList.contains("ranked-lock") || (mp && mp.ranked && !mp.resultShown)) {
           e.preventDefault();
@@ -7695,13 +8025,29 @@
           rankedShowScreen();
           return;
         }
-        mp.ready = false; mp.oppReady = false; mp.myDone = false; mp.oppDone = false; mp.resultShown = false;
-        mpSend({ t: "rematch" }); showScreen("screen-mp-lobby"); mpUpdateLobby();
+        // Casual 1v1 Play Again / Rematch — same room, both return to lobby
+        mp.ready = false;
+        mp.oppReady = false;
+        mp.myDone = false;
+        mp.oppDone = false;
+        mp.resultShown = false;
+        mp.active = false;
+        mp.myScore = null;
+        mp.oppScore = null;
+        mp.myLabel = null;
+        mp.oppLabel = null;
+        try { mpSend({ t: "rematch" }); } catch (eR) {}
+        showScreen("screen-mp-lobby");
+        try { mpUpdateLobby(); } catch (eU) {}
       });
 
       document.getElementById("btnDraftAgain").addEventListener("click", function() {
         if (state && state.daily) return; // daily: one attempt only
         startGame();
+      });
+      var btnExportCard = document.getElementById("btnExportCard");
+      if (btnExportCard) btnExportCard.addEventListener("click", function() {
+        try { exportCardImage(); } catch (eEx) { console.error(eEx); alert("Export failed"); }
       });
       document.getElementById("btnHome").addEventListener("click", showHome);
       document.getElementById("spinBtn").addEventListener("click", spinWheel);
@@ -7741,11 +8087,13 @@
       // Connect to shared leaderboard + ranked users board early
       try { ensureLbClient(function() {}); } catch (lbInitErr) {}
       try {
+        try { rankedLoadUsersCache(); } catch (eLc0) {}
         rankedEnsureClient(function() {
           try {
             ranked.profile = rankedLoadProfile();
             rankedHydrateLocalFromNetwork();
             if (ranked.profile) rankedPublishUser(ranked.profile);
+            try { rankedRenderLeaderboard(); } catch (eRlb) {}
           } catch (eRk) {}
         });
       } catch (rkInitErr) {}
